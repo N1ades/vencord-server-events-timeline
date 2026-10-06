@@ -1,0 +1,24 @@
+{
+  "name": "vencord-server-events-timeline",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A shared timeline of scheduled Discord events for Vencord.",
+  "license": "GPL-3.0-or-later",
+  "author": "N1ades",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/N1ades/vencord-server-events-timeline.git"
+  },
+  "scripts": {
+    "test": "node scripts/test.mjs",
+    "preview": "node scripts/preview.mjs",
+    "preview:build": "node scripts/preview.mjs --build-only"
+  },
+  "engines": { "node": ">=22" },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  }
+}
