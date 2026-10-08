@@ -12,7 +12,7 @@ import ErrorBoundary from "@components/ErrorBoundary";
 import definePlugin from "@utils/types";
 import type { GuildScheduledEventRecurrenceRule, RenderModalProps } from "@vencord/discord-types";
 import { findByCodeLazy, findByPropsLazy } from "@webpack";
-import { ChannelStore, closeModal, Dialog, GuildScheduledEventStore, GuildStore, LocaleStore, openModal, PermissionsBits, PermissionStore, useEffect, UserStore,useState, useStateFromStores } from "@webpack/common";
+import { ChannelStore, closeModal, Dialog, GuildScheduledEventStore, GuildStore, LocaleStore, NavigationRouter, openModal, PermissionsBits, PermissionStore, useEffect, UserStore,useState, useStateFromStores } from "@webpack/common";
 
 import { Occurrence } from "./core";
 import { resolveLanguage, translator } from "./i18n";
@@ -75,6 +75,7 @@ function EventTimelineModal({ onClose }: RenderModalProps) {
         onHiddenChange={ids => { settings.store.hiddenGuilds = ids; }}
         onViewChange={view => { settings.store.view = view; }} onZoomChange={zoom => { settings.store.zoom = zoom; }}
         onRefresh={() => refresh(true)} onEvent={openEvent} onClose={onClose}
+        onGuild={guildId => { onClose(); NavigationRouter.transitionToGuild(guildId); }}
     /></ErrorBoundary></Dialog>;
 }
 

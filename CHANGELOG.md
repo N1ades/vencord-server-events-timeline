@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.2
+
+- Click the server name in the event details panel to close the timeline and navigate to the server.
+- Drag the timeline with the left mouse button, including from event blocks. Dragging suppresses accidental event clicks and continues across infinite scrolling window shifts.
+- Translate the server link tooltip into all five supported languages.
+
 ## 1.0.1
 
 - Normalize Discord's API recurrence fields before expanding events. Weekday, nth-weekday, month, month-day, and year-day constraints now reach Discord's recurrence engine correctly.

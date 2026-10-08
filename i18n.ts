@@ -14,6 +14,7 @@ export const languages = [
 export type Language = typeof languages[number]["value"];
 
 const ru = {
+    openServer: "Перейти на сервер {server}",
     durationSetting: "Длительность блока, если организатор не указал окончание", durationHours: "{hours} ч.", refreshSetting: "Обновлять все серверы каждые 5 минут, пока таймлайн открыт",
     title: "События серверов", subtitle: "Твоё расписание Discord", refresh: "↻ Обновить", close: "Закрыть таймлайн",
     previous: "Предыдущий период", next: "Следующий период", date: "Дата расписания", returnNow: "Вернуться к текущему времени", now: "◷ Сейчас",
@@ -36,6 +37,7 @@ type Messages = typeof ru;
 type Key = keyof Messages;
 
 const en: Messages = {
+    openServer: "Open server {server}",
     durationSetting: "Block duration when the organizer does not specify an end", durationHours: "{hours} h", refreshSetting: "Refresh all servers every 5 minutes while the timeline is open",
     title: "Server events", subtitle: "Your Discord schedule", refresh: "↻ Refresh", close: "Close timeline",
     previous: "Previous period", next: "Next period", date: "Schedule date", returnNow: "Return to current time", now: "◷ Now",
@@ -55,6 +57,7 @@ const en: Messages = {
     guilds_one: "{count} server", guilds_few: "{count} servers", guilds_many: "{count} servers", guilds_other: "{count} servers"
 };
 const ja: Messages = {
+    openServer: "サーバー {server} を開く",
     durationSetting: "終了時刻が未設定の場合の表示時間", durationHours: "{hours}時間", refreshSetting: "タイムライン表示中は全サーバーを5分ごとに更新する",
     title: "サーバーイベント", subtitle: "Discordのイベント予定", refresh: "↻ 更新", close: "タイムラインを閉じる",
     previous: "前の期間", next: "次の期間", date: "表示する日付", returnNow: "現在の時刻に戻る", now: "◷ 現在",
@@ -74,6 +77,7 @@ const ja: Messages = {
     guilds_one: "サーバー{count}件", guilds_few: "サーバー{count}件", guilds_many: "サーバー{count}件", guilds_other: "サーバー{count}件"
 };
 const es: Messages = {
+    openServer: "Abrir servidor {server}",
     durationSetting: "Duración del bloque cuando el organizador no indica la hora de fin", durationHours: "{hours} h", refreshSetting: "Actualizar todos los servidores cada 5 minutos mientras la cronología esté abierta",
     title: "Eventos de servidores", subtitle: "Tu agenda de Discord", refresh: "↻ Actualizar", close: "Cerrar cronología",
     previous: "Periodo anterior", next: "Periodo siguiente", date: "Fecha de la agenda", returnNow: "Volver a la hora actual", now: "◷ Ahora",
@@ -93,6 +97,7 @@ const es: Messages = {
     guilds_one: "{count} servidor", guilds_few: "{count} servidores", guilds_many: "{count} servidores", guilds_other: "{count} servidores"
 };
 const ko: Messages = {
+    openServer: "서버 {server} 열기",
     durationSetting: "주최자가 종료 시간을 지정하지 않은 경우의 표시 시간", durationHours: "{hours}시간", refreshSetting: "타임라인이 열려 있는 동안 5분마다 모든 서버 새로 고침",
     title: "서버 이벤트", subtitle: "내 Discord 일정", refresh: "↻ 새로 고침", close: "타임라인 닫기",
     previous: "이전 기간", next: "다음 기간", date: "일정 날짜", returnNow: "현재 시간으로 돌아가기", now: "◷ 지금",

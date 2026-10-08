@@ -6,7 +6,7 @@
 
 import type { Guild, GuildScheduledEvent } from "@vencord/discord-types";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "@webpack/common";
-import type { CSSProperties } from "react";
+import type { CSSProperties, PointerEvent } from "react";
 
 import { dayWindow, expandEvents, extendTimeline, guildHue, HOUR, layoutLanes, localDate, Occurrence, RecurrenceDates, shiftCalendarDays, timelineWindow } from "./core";
 import { Language, languages, resolveLanguage, translator } from "./i18n";
@@ -29,6 +29,7 @@ export interface TimelineProps {
     onZoomChange(zoom: number): void;
     onRefresh(): void;
     onEvent(occurrence: Occurrence): void;
+    onGuild(guildId: string): void;
     onClose(): void;
 }
 
@@ -56,6 +57,9 @@ export function Timeline(props: TimelineProps) {
     const [selected, setSelected] = useState<Occurrence | null>(null);
     const [now, setNow] = useState(Date.now());
     const scroller = useRef<HTMLDivElement>(null);
+    const drag = useRef<{ pointerId: number; x: number; y: number; startX: number; startY: number; moved: boolean; } | null>(null);
+    const suppressClick = useRef(false);
+    const [dragging, setDragging] = useState(false);
     const [window, setWindow] = useState(() => timelineWindow(Date.now()));
     const [navigation, setNavigation] = useState(0);
     const pendingTime = useRef<number | null>(Date.now() - 100 / props.initialZoom * HOUR);
@@ -103,6 +107,42 @@ export function Timeline(props: TimelineProps) {
             pendingTime.current = leftTime;
             setWindow(next);
         }
+    }
+
+    function startDrag(event: PointerEvent<HTMLDivElement>) {
+        if (event.button !== 0 || event.pointerType !== "mouse" || !(event.target as HTMLElement).closest(".set-grid")) return;
+        suppressClick.current = false;
+        drag.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, startX: event.clientX, startY: event.clientY, moved: false };
+    }
+
+    function moveDrag(event: PointerEvent<HTMLDivElement>) {
+        const { current } = drag;
+        if (!current || current.pointerId !== event.pointerId) return;
+        if (!(event.buttons & 1)) { finishDrag(event); return; }
+        if (!current.moved && Math.hypot(event.clientX - current.startX, event.clientY - current.startY) < 6) return;
+        if (!current.moved) {
+            current.moved = true;
+            setDragging(true);
+            event.currentTarget.setPointerCapture(event.pointerId);
+        }
+        event.preventDefault();
+        // Incremental movement keeps dragging continuous when the infinite window rebases.
+        const deltaX = event.clientX - current.x;
+        if (pendingTime.current !== null) pendingTime.current -= deltaX / pxPerHour * HOUR;
+        event.currentTarget.scrollLeft -= deltaX;
+        event.currentTarget.scrollTop -= event.clientY - current.y;
+        current.x = event.clientX;
+        current.y = event.clientY;
+        onScroll();
+    }
+
+    function finishDrag(event: PointerEvent<HTMLDivElement>) {
+        const { current } = drag;
+        if (!current || current.pointerId !== event.pointerId) return;
+        suppressClick.current = current.moved && event.type === "pointerup";
+        drag.current = null;
+        setDragging(false);
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
     }
 
     function jumpTo(ms: number, atNow = false) {
@@ -179,7 +219,14 @@ export function Timeline(props: TimelineProps) {
                 </div>
                 {props.load.errors.length > 0 && <div className="set-warning">{t("warning", { count: props.load.errors.length, servers: props.load.errors.map(id => guildById.get(id)?.name ?? id).join(", ") })}</div>}
                 {view === "timeline"
-                        ? <div className="set-grid-scroll" ref={scroller} onScroll={onScroll} tabIndex={0} role="region" aria-label={t("gridLabel")}>
+                        ? <div className={`set-grid-scroll ${dragging ? "set-dragging" : ""}`} ref={scroller} onScroll={onScroll} tabIndex={0} role="region" aria-label={t("gridLabel")}
+                            onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={finishDrag} onPointerCancel={finishDrag} onLostPointerCapture={finishDrag}
+                            onDragStart={event => event.preventDefault()} onClickCapture={event => {
+                                if (!suppressClick.current || event.detail === 0) return;
+                                suppressClick.current = false;
+                                event.preventDefault();
+                                event.stopPropagation();
+                            }}>
                             <div className="set-grid" data-from={from} data-to={to} style={{ width: timelineWidth }}>
                                 <div className="set-ruler"><div className="set-hours" style={{ width: timelineWidth }}>
                                     {ticks.map(tick => <div className={`set-tick ${new Date(tick).getHours() === 0 ? "set-midnight" : ""} ${[0, 6].includes(new Date(tick).getDay()) ? "set-weekend" : ""}`} key={tick} style={{ left: (tick - from) / HOUR * pxPerHour, width: pxPerHour }} title={new Date(tick).toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}><small>{new Date(tick).toLocaleDateString(locale, { weekday: "short", day: "numeric", month: "short" })}</small><span>{time(tick)}</span></div>)}
@@ -213,7 +260,10 @@ export function Timeline(props: TimelineProps) {
             {selectedCurrent && selectedGuild && <aside className="set-detail">
                 <button className="set-detail-close" aria-label={t("closeDetail")} onClick={() => setSelected(null)}>✕</button>
                 {selectedCurrent.event.image && <img className="set-cover" src={`https://cdn.discordapp.com/guild-events/${selectedCurrent.event.id}/${selectedCurrent.event.image}.webp?size=1024`} alt="" />}
-                <div className="set-detail-content"><div className="set-detail-guild"><Icon guild={selectedGuild} />{selectedGuild.name}</div>
+                <div className="set-detail-content"><a className="set-detail-guild set-guild-link" href={`/channels/${selectedGuild.id}`} title={t("openServer", { server: selectedGuild.name })} onClick={event => {
+                    event.preventDefault();
+                    props.onGuild(selectedGuild.id);
+                }}><Icon guild={selectedGuild} />{selectedGuild.name}</a>
                     {selectedCurrent.active && <span className="set-live-badge">{t("live")}</span>}
                     <h2>{selectedCurrent.event.name}</h2><p className="set-detail-time">{dateTime(selectedCurrent.start)}<br />{t("until")} {selectedCurrent.estimatedEnd ? "≈ " : ""}{dateTime(selectedCurrent.end)}</p>
                     {selectedCurrent.estimatedEnd && <p className="set-muted">{t("estimateHint")}</p>}

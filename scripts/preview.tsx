@@ -62,15 +62,16 @@ function Preview() {
     const [language, setLanguage] = useState<string>(() => localStorage.getItem("timeline-demo-language") ?? "auto");
     const [hidden, setHidden] = useState<string[]>([]);
     const [backgroundClicks, setBackgroundClicks] = useState(0);
+    const [openedGuild, setOpenedGuild] = useState<string | null>(null);
     return <><button id="preview-discord-background" aria-label="Discord background" onClick={() => setBackgroundClicks(backgroundClicks + 1)} style={{ position: "fixed", inset: 0, width: "100%", height: "100%", background: "#0d0e13" }} />
-        <output id="preview-background-clicks" style={{ position: "fixed", bottom: 0, left: 0, color: "white", fontSize: 10 }}>Background clicks: {backgroundClicks}</output>
+        <output id="preview-background-clicks" style={{ position: "fixed", bottom: 0, left: 0, color: "white", fontSize: 10 }}>Background clicks: {backgroundClicks}{openedGuild && ` · Opened server: ${openedGuild}`}</output>
         <div id="preview-discord-modal-layer" style={{ position: "fixed", inset: 24, pointerEvents: "none", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <div className="set-dialog"><Timeline
         guilds={guilds} events={events} load={{ loading: false, done: 6, total: 6, errors: [], updated: Date.now() }}
         duration={2} recurrenceDates={recurrenceDates} hiddenGuilds={hidden} initialView="timeline" initialZoom={140}
         language={language} discordLocale="en-US" onLanguageChange={(language: Language | "auto") => { setLanguage(language); localStorage.setItem("timeline-demo-language", language); }}
         onHiddenChange={setHidden} onViewChange={() => {}} onZoomChange={() => {}} onRefresh={() => {}}
-        onEvent={() => {}} onClose={() => {}}
+        onEvent={() => {}} onClose={() => {}} onGuild={id => setOpenedGuild(guilds.find(guild => guild.id === id)?.name ?? id)}
     /></div></div></>;
 }
 createRoot(document.getElementById("root")!).render(<Preview />);

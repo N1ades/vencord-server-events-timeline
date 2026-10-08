@@ -60,7 +60,11 @@
 .set-status { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 8px 14px; color: #9696ab; font-size: 11px; border-bottom: 1px solid #ffffff09; }
 .set-status > span:first-child { color: #ceceda; }
 .set-warning { padding: 10px 18px; background: #d7a54315; color: #e5c88d; font-size: 12px; line-height: 1.5; max-height: 90px; overflow-y: auto; }
-.set-grid-scroll { flex: 1; overflow: auto; min-height: 0; overscroll-behavior: contain; overflow-anchor: none; scrollbar-color: #4a475d #1b1c23; }
+.set-grid-scroll { flex: 1; overflow: auto; min-height: 0; overscroll-behavior: contain; overflow-anchor: none; scrollbar-color: #4a475d #1b1c23; cursor: grab; user-select: none; }
+.set-grid-scroll .set-event { cursor: grab; }
+.set-grid-scroll.set-dragging, .set-grid-scroll.set-dragging * { cursor: grabbing !important; }
+.set-guild-link { text-decoration: none; cursor: pointer; }
+.set-guild-link:hover { color: #d4c8ff; text-decoration: underline; }
 .set-grid { min-height: 100%; position: relative; background-image: repeating-linear-gradient(to right, #ffffff07 0, #ffffff07 1px, transparent 1px, transparent var(--set-hour)); }
 .set-ruler { display: flex; position: sticky; top: 0; height: 44px; z-index: 6; background: #22232b; border-bottom: 1px solid #ffffff12; }
 .set-hours { position: relative; }

@@ -14,11 +14,13 @@ A Vencord user plugin that brings **scheduled events from all your Discord serve
 - **One schedule for every server.** Collect upcoming and ongoing scheduled events from the servers you have joined.
 - **Compact lanes.** Events from different servers share a row when they do not overlap. Each block shows its server icon and name; there is no separate server column.
 - **Infinite horizontal scrolling.** Move through past and future dates, including empty days, without growing the rendered range indefinitely.
+- **Drag to scroll.** Hold the left mouse button on the timeline or an event block and move the schedule. Releasing after a drag does not open the event.
 - **Sticky event labels.** Titles and server details stay at the visible left edge until the event ends.
 - **Local dates and weekdays.** Weekend highlights, a current-time line, and a **Now** button that works from any date or the list view.
 - **Search and filters.** Find events by name, description, location, or server. Filter servers, show active events only, and adjust the timeline zoom.
 - **Recurring events.** Discord's recurrence rules, canceled occurrences, rescheduled occurrences, and events that cross midnight.
 - **Native event details.** Read the description and open Discord's event dialog, including a specific recurring occurrence.
+- **Open the server.** Click its name in the event details panel to close the timeline and switch to that server in Discord.
 - **Five interface languages.** English, Russian, Japanese, Spanish, and Korean. The default follows Discord's language; unsupported languages fall back to English. Manual overrides are saved.
 - **Automatic refresh.** Updates from Discord's stores and a server refresh every five minutes while the window is open. Preferences persist between sessions.
 
@@ -64,6 +66,8 @@ Open the calendar button above the server list, run the local `/events-timeline`
 | **Timeline / List** | Switch between the horizontal schedule and an agenda |
 | Language selector | Follow Discord or choose a saved language override |
 | Event block | Open the details panel; its button opens Discord's native event dialog |
+| Server name in the details panel | Close the timeline and switch to that server |
+| Drag the timeline with the left mouse button | Move the schedule horizontally or vertically |
 | **Refresh** | Check events across the joined servers again |
 
 When an organizer does not provide an end time, the event displays **≈**. Choose an estimated block duration of one, two, or four hours in the plugin settings. This estimate does not indicate when the event actually finishes.
