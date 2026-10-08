@@ -47,6 +47,25 @@ interface Exception {
 
 export type RecurrenceDates = (rule: GuildScheduledEventRecurrenceRule, from: Date, to: Date) => Date[];
 
+/** The event store keeps API snake_case fields; Discord's RRULE converter expects camelCase. */
+function normalizeRecurrenceRule(rule: GuildScheduledEventRecurrenceRule): GuildScheduledEventRecurrenceRule {
+    const stored = rule as GuildScheduledEventRecurrenceRule & {
+        by_weekday?: GuildScheduledEventRecurrenceRule["byWeekday"];
+        by_n_weekday?: GuildScheduledEventRecurrenceRule["byNWeekday"];
+        by_month?: GuildScheduledEventRecurrenceRule["byMonth"];
+        by_month_day?: GuildScheduledEventRecurrenceRule["byMonthDay"];
+        by_year_day?: GuildScheduledEventRecurrenceRule["byYearDay"];
+    };
+    return {
+        ...rule,
+        byWeekday: stored.byWeekday ?? stored.by_weekday ?? null,
+        byNWeekday: stored.byNWeekday ?? stored.by_n_weekday ?? null,
+        byMonth: stored.byMonth ?? stored.by_month ?? null,
+        byMonthDay: stored.byMonthDay ?? stored.by_month_day ?? null,
+        byYearDay: stored.byYearDay ?? stored.by_year_day ?? null
+    };
+}
+
 export function snowflakeTime(id: string): number {
     try { return Number(BigInt(id) >> 22n) + 1_420_070_400_000; }
     catch { return NaN; }
@@ -70,7 +89,7 @@ export function expandEvents(events: GuildScheduledEvent[], from: number, to: nu
         const exceptions = (event.guild_scheduled_event_exceptions ?? []) as Exception[];
         const starts = new Set<number>();
         if (event.recurrence_rule) {
-            for (const date of dates(event.recurrence_rule, new Date(from - duration), new Date(to))) starts.add(date.getTime());
+            for (const date of dates(normalizeRecurrenceRule(event.recurrence_rule), new Date(from - duration), new Date(to))) starts.add(date.getTime());
             // A rescheduled occurrence may move into the window from outside it.
             for (const exception of exceptions) starts.add(snowflakeTime(exception.event_exception_id));
         } else starts.add(base);

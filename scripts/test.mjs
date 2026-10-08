@@ -5,6 +5,8 @@ import { resolve } from "node:path";
 import { test } from "node:test";
 import { pathToFileURL } from "node:url";
 
+import { recurrenceDates } from "./recurrence.mjs";
+
 const dir = resolve(".output/tests");
 await mkdir(dir, { recursive: true });
 for (const name of ["core", "loader", "i18n"]) {
@@ -104,6 +106,50 @@ test("recurrence cancellation, moved start, custom end and moved-in occurrence",
 test("only the active recurrence is marked live", () => {
     const result = expand([event({ status: 2, recurrence_rule: { start: date(from) } })], () => [new Date(from + 18 * HOUR), new Date(from + 21 * HOUR)]);
     assert.deepEqual(result.map(o => o.active), [true, false]);
+});
+
+test("three API-format recurring events appear on their constrained date", () => {
+    const start = Date.parse("2026-10-08T00:00:00Z");
+    const rules = [
+        { start: "2026-10-06T18:00:00Z", frequency: 2, interval: 1, by_weekday: [3] },
+        { start: "2026-10-01T18:00:00Z", frequency: 1, interval: 1, by_n_weekday: [{ n: 2, day: 3 }] },
+        { start: "2026-10-01T18:00:00Z", frequency: 0, interval: 1, by_month: [10], by_month_day: [8] }
+    ];
+    const events = rules.map((rule, index) => event({ id: String(index), scheduled_start_time: rule.start, scheduled_end_time: null, recurrence_rule: rule }));
+    const result = expandEvents(events, start, start + 24 * HOUR, 2, recurrenceDates);
+    assert.deepEqual(result.map(o => o.event.id), ["0", "1", "2"]);
+    assert.ok(result.every(o => o.start === start + 18 * HOUR));
+});
+
+test("API and camelCase recurrence constraints produce the same dates", () => {
+    const until = Date.parse("2028-01-01T00:00:00Z");
+    const constraints = [
+        { frequency: 2, interval: 2, byWeekday: [1, 3], by_weekday: [1, 3] },
+        { frequency: 1, byNWeekday: [{ n: 2, day: 3 }], by_n_weekday: [{ n: 2, day: 3 }] },
+        { frequency: 0, byMonth: [10, 11], by_month: [10, 11], byMonthDay: [8], by_month_day: [8] },
+        { frequency: 0, byYearDay: [281], by_year_day: [281] }
+    ];
+    for (const fields of constraints) {
+        const base = { start: date(from + 18 * HOUR), end: "2027-12-01T00:00:00Z", interval: 1, count: 5 };
+        const raw = { ...base, ...Object.fromEntries(Object.entries(fields).filter(([key]) => !/[A-Z]/.test(key))) };
+        const camel = { ...base, ...Object.fromEntries(Object.entries(fields).filter(([key]) => !key.includes("_"))) };
+        const expandRule = rule => expandEvents([event({ recurrence_rule: rule })], from, until, 2, recurrenceDates).map(o => [o.start, o.recurrenceId]);
+        const expected = expandRule(camel);
+        assert.ok(expected.length > 0);
+        assert.deepEqual(expandRule(raw), expected);
+        assert.ok(expected.length <= 5);
+    }
+});
+
+test("real recurrence expansion preserves cancellation and moved occurrences", () => {
+    const second = from + 24 * HOUR + 18 * HOUR;
+    const result = expandEvents([event({ recurrence_rule: { start: date(from + 18 * HOUR), frequency: 3, interval: 1, count: 2 }, guild_scheduled_event_exceptions: [
+        { event_exception_id: recurrenceId(from + 18 * HOUR), is_canceled: true },
+        { event_exception_id: recurrenceId(second), scheduled_start_time: date(from + 21 * HOUR), scheduled_end_time: date(from + 23 * HOUR) }
+    ] })], from, to, 2, recurrenceDates);
+    assert.equal(result.length, 1);
+    assert.equal(result[0].start, from + 21 * HOUR);
+    assert.equal(result[0].recurrenceId, recurrenceId(second));
 });
 
 test("short overlapping blocks get separate lanes; adjacent events reuse lanes", () => {

@@ -13,6 +13,8 @@ import type { Language } from "../i18n";
 import { Timeline } from "../Timeline";
 import type { Guild, GuildScheduledEvent } from "@vencord/discord-types";
 
+import { recurrenceDates } from "./recurrence.mjs";
+
 const midnight = new Date(`${localDate(new Date())}T00:00:00`).getTime();
 const guilds = [
     { id: "201", name: "Neon District", icon: null },
@@ -45,6 +47,17 @@ const events = fixtures.map(([guild, name, hour, duration, location, status], in
     entity_metadata: { location }, image: null, recurrence_rule: null, guild_scheduled_event_exceptions: []
 })) as GuildScheduledEvent[];
 
+// API-format rules exercise the same store-to-RRULE conversion as the installed plugin.
+const weeklyStart = new Date(midnight - 14 * 24 * HOUR + slot * HOUR).toISOString();
+const weekday = (new Date(midnight + slot * HOUR).getUTCDay() + 6) % 7;
+for (let index = 0; index < 3; index++) {
+    events.push({ ...events[0], id: String(400 + index), guild_id: "206", status: 1,
+        name: ["Weekly community meetup", "Weekly music session", "Weekly game night"][index],
+        scheduled_start_time: weeklyStart, scheduled_end_time: null,
+        recurrence_rule: { start: weeklyStart, end: null, frequency: 2, interval: 1, by_weekday: [weekday] }
+    } as unknown as GuildScheduledEvent);
+}
+
 function Preview() {
     const [language, setLanguage] = useState<string>(() => localStorage.getItem("timeline-demo-language") ?? "auto");
     const [hidden, setHidden] = useState<string[]>([]);
@@ -54,7 +67,7 @@ function Preview() {
         <div id="preview-discord-modal-layer" style={{ position: "fixed", inset: 24, pointerEvents: "none", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <div className="set-dialog"><Timeline
         guilds={guilds} events={events} load={{ loading: false, done: 6, total: 6, errors: [], updated: Date.now() }}
-        duration={2} recurrenceDates={() => []} hiddenGuilds={hidden} initialView="timeline" initialZoom={140}
+        duration={2} recurrenceDates={recurrenceDates} hiddenGuilds={hidden} initialView="timeline" initialZoom={140}
         language={language} discordLocale="en-US" onLanguageChange={(language: Language | "auto") => { setLanguage(language); localStorage.setItem("timeline-demo-language", language); }}
         onHiddenChange={setHidden} onViewChange={() => {}} onZoomChange={() => {}} onRefresh={() => {}}
         onEvent={() => {}} onClose={() => {}}

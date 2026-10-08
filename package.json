@@ -1,6 +1,6 @@
 {
   "name": "vencord-server-events-timeline",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "type": "module",
   "description": "A shared timeline of scheduled Discord events for Vencord.",
@@ -15,10 +15,13 @@
     "preview": "node scripts/preview.mjs",
     "preview:build": "node scripts/preview.mjs --build-only"
   },
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "devDependencies": {
     "esbuild": "0.28.2",
     "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "react-dom": "18.3.1",
+    "rrule": "2.8.1"
   }
 }

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.1
+
+- Normalize Discord's API recurrence fields before expanding events. Weekday, nth-weekday, month, month-day, and year-day constraints now reach Discord's recurrence engine correctly.
+- Add regression tests using a real RRULE engine and three recurring events to the standalone preview.
+
 ## 1.0.0
 
 Initial public release.
