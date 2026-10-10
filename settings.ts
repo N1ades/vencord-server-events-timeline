@@ -9,6 +9,7 @@ import { OptionType } from "@utils/types";
 import { LocaleStore } from "@webpack/common";
 
 import { languages, resolveLanguage, translator } from "./i18n";
+import type { PersonalEvent } from "./personal";
 
 function settingTranslation() {
     const choice = settings.pluginName ? settings.store.language ?? "auto" : "auto";
@@ -31,4 +32,4 @@ export const settings = definePluginSettings({
         ]
     },
     refreshAutomatically: { type: OptionType.BOOLEAN, get description() { return settingTranslation().t("refreshSetting"); }, default: true }
-}).withPrivateSettings<{ hiddenGuilds?: string[]; view?: "timeline" | "list"; zoom?: number; }>();
+}).withPrivateSettings<{ hiddenGuilds?: string[]; view?: "timeline" | "list"; zoom?: number; personalEvents?: Record<string, PersonalEvent[]>; personalMinutes?: number; }>();

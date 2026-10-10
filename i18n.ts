@@ -14,6 +14,9 @@ export const languages = [
 export type Language = typeof languages[number]["value"];
 
 const ru = {
+    timestamps: "Таймстампы", minutes: "мин", newTimestampDuration: "Длительность новых таймстампов (минуты)",
+    savedDuration: "Длительность (минуты)", personalEvents: "Личные события", personalHint: "Сохранено из сообщения. Видно только тебе.",
+    savedTimestamp: "Таймстамп из сообщения", addTimestamp: "Добавить таймстамп в календарь", openSaved: "Открыть в календаре", removeSaved: "Удалить из календаря", openMessage: "Открыть исходное сообщение ↗",
     openServer: "Перейти на сервер {server}",
     durationSetting: "Длительность блока, если организатор не указал окончание", durationHours: "{hours} ч.", refreshSetting: "Обновлять все серверы каждые 5 минут, пока таймлайн открыт",
     title: "События серверов", subtitle: "Твоё расписание Discord", refresh: "↻ Обновить", close: "Закрыть таймлайн",
@@ -37,6 +40,9 @@ type Messages = typeof ru;
 type Key = keyof Messages;
 
 const en: Messages = {
+    timestamps: "Timestamps", minutes: "min", newTimestampDuration: "Duration of new timestamps (minutes)",
+    savedDuration: "Duration (minutes)", personalEvents: "Personal events", personalHint: "Saved from a message. Only visible to you.",
+    savedTimestamp: "Message timestamp", addTimestamp: "Add timestamp to calendar", openSaved: "Open in calendar", removeSaved: "Remove from calendar", openMessage: "Open source message ↗",
     openServer: "Open server {server}",
     durationSetting: "Block duration when the organizer does not specify an end", durationHours: "{hours} h", refreshSetting: "Refresh all servers every 5 minutes while the timeline is open",
     title: "Server events", subtitle: "Your Discord schedule", refresh: "↻ Refresh", close: "Close timeline",
@@ -57,6 +63,9 @@ const en: Messages = {
     guilds_one: "{count} server", guilds_few: "{count} servers", guilds_many: "{count} servers", guilds_other: "{count} servers"
 };
 const ja: Messages = {
+    timestamps: "タイムスタンプ", minutes: "分", newTimestampDuration: "新しいタイムスタンプの長さ（分）",
+    savedDuration: "長さ（分）", personalEvents: "個人イベント", personalHint: "メッセージから保存済み。自分だけに表示されます。",
+    savedTimestamp: "メッセージのタイムスタンプ", addTimestamp: "タイムスタンプをカレンダーに追加", openSaved: "カレンダーで開く", removeSaved: "カレンダーから削除", openMessage: "元のメッセージを開く ↗",
     openServer: "サーバー {server} を開く",
     durationSetting: "終了時刻が未設定の場合の表示時間", durationHours: "{hours}時間", refreshSetting: "タイムライン表示中は全サーバーを5分ごとに更新する",
     title: "サーバーイベント", subtitle: "Discordのイベント予定", refresh: "↻ 更新", close: "タイムラインを閉じる",
@@ -77,6 +86,9 @@ const ja: Messages = {
     guilds_one: "サーバー{count}件", guilds_few: "サーバー{count}件", guilds_many: "サーバー{count}件", guilds_other: "サーバー{count}件"
 };
 const es: Messages = {
+    timestamps: "Fechas", minutes: "min", newTimestampDuration: "Duración de nuevas fechas (minutos)",
+    savedDuration: "Duración (minutos)", personalEvents: "Eventos personales", personalHint: "Guardado desde un mensaje. Solo visible para ti.",
+    savedTimestamp: "Fecha del mensaje", addTimestamp: "Añadir fecha al calendario", openSaved: "Abrir en el calendario", removeSaved: "Eliminar del calendario", openMessage: "Abrir mensaje original ↗",
     openServer: "Abrir servidor {server}",
     durationSetting: "Duración del bloque cuando el organizador no indica la hora de fin", durationHours: "{hours} h", refreshSetting: "Actualizar todos los servidores cada 5 minutos mientras la cronología esté abierta",
     title: "Eventos de servidores", subtitle: "Tu agenda de Discord", refresh: "↻ Actualizar", close: "Cerrar cronología",
@@ -97,6 +109,9 @@ const es: Messages = {
     guilds_one: "{count} servidor", guilds_few: "{count} servidores", guilds_many: "{count} servidores", guilds_other: "{count} servidores"
 };
 const ko: Messages = {
+    timestamps: "타임스탬프", minutes: "분", newTimestampDuration: "새 타임스탬프의 길이 (분)",
+    savedDuration: "길이 (분)", personalEvents: "개인 이벤트", personalHint: "메시지에서 저장됨. 나에게만 표시됩니다.",
+    savedTimestamp: "메시지 타임스탬프", addTimestamp: "캘린더에 타임스탬프 추가", openSaved: "캘린더에서 열기", removeSaved: "캘린더에서 삭제", openMessage: "원본 메시지 열기 ↗",
     openServer: "서버 {server} 열기",
     durationSetting: "주최자가 종료 시간을 지정하지 않은 경우의 표시 시간", durationHours: "{hours}시간", refreshSetting: "타임라인이 열려 있는 동안 5분마다 모든 서버 새로 고침",
     title: "서버 이벤트", subtitle: "내 Discord 일정", refresh: "↻ 새로 고침", close: "타임라인 닫기",

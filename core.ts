@@ -6,6 +6,8 @@
 
 import type { GuildScheduledEvent, GuildScheduledEventRecurrenceRule } from "@vencord/discord-types";
 
+import type { PersonalEvent } from "./personal";
+
 export const HOUR = 3_600_000;
 
 /** Shift by calendar days, including 23/25-hour days in local time. */
@@ -29,6 +31,7 @@ export function extendTimeline(from: number, to: number, leftTime: number, right
         : null;
 }
 export interface Occurrence {
+    personal?: PersonalEvent;
     key: string;
     event: GuildScheduledEvent;
     recurrenceId: string | null;

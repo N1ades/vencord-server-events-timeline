@@ -22,6 +22,8 @@ node scripts/build/buildWeb.mjs --skip-extension
 
 Restart Discord with the custom build installed. Check overlapping events, midnight boundaries, long events scrolling off the left edge, empty dates, recurring occurrences, and language changes. Native Discord integrations cannot be fully validated by the browser preview.
 
+For saved timestamps, check the message context menu with one or several rendered timestamps, inline code, and code blocks. Confirm the badge preserves Discord's timestamp tooltip, focuses the saved event from another date or filtered view, and disappears after removal. Check duration editing, reload persistence, direct-message sources, source-message navigation, and isolation after switching accounts.
+
 ## Code layout
 
 | File | Responsibility |
@@ -29,6 +31,8 @@ Restart Discord with the custom build installed. Check overlapping events, midni
 | `index.tsx` | Vencord registration, Discord stores, fetching, and native event dialogs |
 | `Timeline.tsx` | Timeline, list, filters, navigation, and event details |
 | `core.ts` | Occurrence expansion, lane packing, and calendar windows |
+| `personal.ts` | Parsed timestamp extraction, saved event identities, durations, and personal occurrences |
+| `TimestampBadge.tsx` | Calendar button shared by message timestamps and the preview |
 | `loader.ts` | Sequential fetch queue, cache, cancellation, and progress |
 | `i18n.ts` | Translation strings, locale mapping, and plural forms |
 | `settings.ts` | Saved preferences and plugin settings |

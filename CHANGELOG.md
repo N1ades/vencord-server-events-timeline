@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.0
+
+- Save rendered Discord message timestamps as personal calendar events from the message context menu, including individual choices for messages with multiple timestamps.
+- Show a calendar badge beside saved timestamps. Clicking it selects the event, jumps to its time, and clears filters that would hide it.
+- Default saved timestamps to one hour, with a configurable default in the calendar toolbar and per-event duration editing in the details panel.
+- Remove personal entries from the details panel and return to their source messages.
+- Persist personal entries locally and keep separate collections for each Discord account.
+- Translate the new controls into all five supported languages and add persistence, duration, and timestamp parsing tests.
+
 ## 1.0.2
 
 - Click the server name in the event details panel to close the timeline and navigate to the server.

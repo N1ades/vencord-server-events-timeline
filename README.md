@@ -21,6 +21,8 @@ A Vencord user plugin that brings **scheduled events from all your Discord serve
 - **Recurring events.** Discord's recurrence rules, canceled occurrences, rescheduled occurrences, and events that cross midnight.
 - **Native event details.** Read the description and open Discord's event dialog, including a specific recurring occurrence.
 - **Open the server.** Click its name in the event details panel to close the timeline and switch to that server in Discord.
+- **Save message timestamps.** Add a rendered Discord timestamp to your personal calendar from the message context menu. Saved timestamps get a calendar badge that jumps to the exact event.
+- **Personal event duration.** Saved timestamps last one hour by default. Change the default in the calendar toolbar, or edit an individual event's duration and remove it in the details panel.
 - **Five interface languages.** English, Russian, Japanese, Spanish, and Korean. The default follows Discord's language; unsupported languages fall back to English. Manual overrides are saved.
 - **Automatic refresh.** Updates from Discord's stores and a server refresh every five minutes while the window is open. Preferences persist between sessions.
 
@@ -68,13 +70,22 @@ Open the calendar button above the server list, run the local `/events-timeline`
 | Event block | Open the details panel; its button opens Discord's native event dialog |
 | Server name in the details panel | Close the timeline and switch to that server |
 | Drag the timeline with the left mouse button | Move the schedule horizontally or vertically |
+| Right-click a message → **Add timestamp to calendar** | Save its timestamp; messages with multiple timestamps offer a submenu |
+| Calendar badge beside a saved timestamp | Open the timeline at that event, clearing filters that would hide it |
+| **Timestamps … min** in the toolbar | Set the duration for newly saved timestamps, initially 60 minutes |
+| Duration / **Remove from calendar** in saved event details | Edit that event's duration or delete the personal entry |
+| **Open source message** | Return to the message where the timestamp was saved |
 | **Refresh** | Check events across the joined servers again |
 
 When an organizer does not provide an end time, the event displays **≈**. Choose an estimated block duration of one, two, or four hours in the plugin settings. This estimate does not indicate when the event actually finishes.
 
+Saved timestamps can come from server messages or direct messages. Only rendered Discord timestamps (`<t:UNIX:STYLE>`) are offered; timestamps inside code are ignored. Durations are whole minutes, from 1 to 525,600. Press Enter or leave the input to apply a duration. Changing the default affects future additions; existing entries keep their own duration.
+
 ## Event data and limitations
 
-The plugin reads **Discord's scheduled events**, the ones shown in a server's **Events** section. It does not scan announcement messages or read direct messages. Events in channels are included only when the current account can view that channel.
+The plugin collects **Discord's scheduled events**, the ones shown in a server's **Events** section. Events in channels are included only when the current account can view that channel. Message timestamps are added only when you explicitly choose them from a message context menu; the plugin does not scan message history.
+
+Personal entries are stored locally in Vencord settings, separately for each Discord account. Each entry keeps the chosen time, duration, message text, source channel and message IDs, and server name/icon. They remain after a reload and are not shared with the server or published as Discord scheduled events. Editing the source message does not change the saved snapshot. Deleting an entry removes its calendar badge without deleting the message.
 
 Completed and canceled events are excluded. Scrolling into the past does not recover deleted events or create an archive. Event titles and descriptions stay in the organizer's original language.
 

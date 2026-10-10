@@ -11,6 +11,7 @@ import type { CSSProperties, PointerEvent } from "react";
 import { dayWindow, expandEvents, extendTimeline, guildHue, HOUR, layoutLanes, localDate, Occurrence, RecurrenceDates, shiftCalendarDays, timelineWindow } from "./core";
 import { Language, languages, resolveLanguage, translator } from "./i18n";
 import type { LoadState } from "./loader";
+import { CalendarFocus, PersonalEvent, personalOccurrence, validMinutes } from "./personal";
 
 export interface TimelineProps {
     guilds: Guild[];
@@ -23,6 +24,12 @@ export interface TimelineProps {
     initialZoom: number;
     language: string;
     discordLocale: string;
+    personalEvents: PersonalEvent[];
+    personalMinutes: number;
+    focus?: CalendarFocus;
+    onPersonalMinutes(minutes: number): void;
+    onEditPersonal(id: string, minutes: number): void;
+    onRemovePersonal(id: string): void;
     onLanguageChange(language: Language | "auto"): void;
     onHiddenChange(ids: string[]): void;
     onViewChange(view: "timeline" | "list"): void;
@@ -37,6 +44,15 @@ function Icon({ guild }: { guild: Guild; }) {
     return guild.icon
         ? <img className="set-guild-icon" src={`https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.webp?size=64`} alt="" />
         : <span className="set-guild-icon set-initial">{guild.name.slice(0, 2)}</span>;
+}
+
+function DurationInput({ minutes, label, onChange }: { minutes: number; label: string; onChange(minutes: number): void; }) {
+    const [draft, setDraft] = useState(String(minutes));
+    useEffect(() => setDraft(String(minutes)), [minutes]);
+    return <input type="number" min={1} max={525600} step={1} aria-label={label} value={draft} onChange={event => setDraft(event.target.value)} onBlur={() => {
+        const value = Number(draft);
+        if (validMinutes(value)) onChange(value); else setDraft(String(minutes));
+    }} onKeyDown={event => { if (event.key === "Enter") event.currentTarget.blur(); }} />;
 }
 
 export function Timeline(props: TimelineProps) {
@@ -68,17 +84,28 @@ export function Timeline(props: TimelineProps) {
     const hidden = useMemo(() => new Set(props.hiddenGuilds), [props.hiddenGuilds]);
     const pxPerHour = days === 7 ? zoom * 0.65 : zoom;
     const timelineWidth = (to - from) / HOUR * pxPerHour;
-    const occurrences = useMemo(() => expandEvents(props.events, from, to, props.duration, props.recurrenceDates), [props.events, from, to, props.duration, props.recurrenceDates]);
+    const occurrences = useMemo(() => [
+        ...expandEvents(props.events, from, to, props.duration, props.recurrenceDates),
+        ...props.personalEvents.map(event => personalOccurrence(event, now)).filter(event => event.start < to && event.end > from)
+    ].sort((a, b) => a.start - b.start || a.key.localeCompare(b.key)), [props.events, from, to, props.duration, props.recurrenceDates, props.personalEvents, now]);
     const q = query.trim().toLocaleLowerCase();
-    const guildById = useMemo(() => new Map(props.guilds.map(guild => [guild.id, guild])), [props.guilds]);
+    const guildById = useMemo(() => {
+        const guilds = new Map(props.guilds.map(guild => [guild.id, guild]));
+        for (const event of props.personalEvents) {
+            const id = event.guildId ?? "@personal";
+            if (!guilds.has(id)) guilds.set(id, { id, name: event.guildName || t("personalEvents"), icon: event.guildIcon } as Guild);
+        }
+        return guilds;
+    }, [props.guilds, props.personalEvents, t]);
     const visible = occurrences.filter(o => !hidden.has(o.event.guild_id) && (!onlyActive || o.active) &&
         (!q || `${o.event.name} ${o.event.description ?? ""} ${o.event.entity_metadata?.location ?? ""} ${guildById.get(o.event.guild_id)?.name ?? ""}`.toLocaleLowerCase().includes(q)));
-    const visibleGuildCount = new Set(visible.map(o => o.event.guild_id)).size;
+    const visibleGuildCount = new Set(visible.map(o => o.event.guild_id).filter(id => id !== "@personal")).size;
     const layout = layoutLanes(visible, from, to, pxPerHour);
     const ticks: number[] = [];
     for (let tick = from; tick < to; tick += HOUR) ticks.push(tick);
     const currentX = (now - from) / HOUR * pxPerHour;
-    const selectedCurrent = selected ? occurrences.find(o => o.key === selected.key) ?? selected : null;
+    const selectedPersonal = selected?.personal ? props.personalEvents.find(event => event.id === selected.key) : undefined;
+    const selectedCurrent = selected?.personal ? selectedPersonal ? personalOccurrence(selectedPersonal, now) : null : selected ? occurrences.find(o => o.key === selected.key) ?? selected : null;
     const selectedGuild = selectedCurrent ? guildById.get(selectedCurrent.event.guild_id) : null;
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -167,6 +194,24 @@ export function Timeline(props: TimelineProps) {
 
     function switchView(value: "timeline" | "list") { setView(value); props.onViewChange(value); }
 
+    useLayoutEffect(() => {
+        const event = props.personalEvents.find(event => event.id === props.focus?.id);
+        if (!event) return;
+        setQuery("");
+        setOnlyActive(false);
+        const guildId = event.guildId ?? "@personal";
+        if (hidden.has(guildId)) props.onHiddenChange(props.hiddenGuilds.filter(id => id !== guildId));
+        switchView("timeline");
+        jumpTo(event.start, true);
+        setSelected(personalOccurrence(event));
+    }, [props.focus?.nonce]);
+
+    useLayoutEffect(() => {
+        if (!scroller.current || selectedCurrent?.key !== props.focus?.id) return;
+        const item = layout.items.find(item => item.occurrence.key === props.focus?.id);
+        if (item) scroller.current.scrollTop = Math.max(0, item.lane * 48 - scroller.current.clientHeight / 2);
+    }, [from, selectedCurrent?.key, props.focus?.nonce, props.hiddenGuilds, query, onlyActive]);
+
     const style = { "--set-hour": `${pxPerHour}px` } as CSSProperties;
     return <div className="set-app" style={style} lang={locale}>
         <header className="set-header">
@@ -190,6 +235,7 @@ export function Timeline(props: TimelineProps) {
                 </select>
             </div>
             <input className="set-search" type="search" placeholder={t("searchPlaceholder")} aria-label={t("search")} value={query} onChange={e => setQuery(e.target.value)} />
+            <label className="set-personal-duration" title={t("newTimestampDuration")}><span>{t("timestamps")}</span><DurationInput minutes={props.personalMinutes} label={t("newTimestampDuration")} onChange={props.onPersonalMinutes} /><span>{t("minutes")}</span></label>
             <div className="set-actions">
                 <button aria-pressed={showFilters} aria-controls="set-server-filters" onClick={() => setShowFilters(!showFilters)}>{t("servers")}{hidden.size ? ` (${t("hidden", { count: props.guilds.filter(g => hidden.has(g.id)).length })})` : ""}</button>
                 <button aria-pressed={view === "timeline"} onClick={() => switchView("timeline")}>{t("timeline")}</button>
@@ -234,10 +280,10 @@ export function Timeline(props: TimelineProps) {
                                 <div className="set-tracks" style={{ height: layout.lanes * 48 + 8 }}>
                                     {layout.items.map(({ occurrence: o, left, width, lane }) => {
                                         const guild = guildById.get(o.event.guild_id)!;
-                                        return <button className={`set-event ${o.active ? "set-active" : ""} ${o.estimatedEnd ? "set-estimated" : ""}`} key={o.key} title={`${guild.name}\n${label(o)}`} aria-label={`${guild.name}: ${label(o)}`} onClick={() => setSelected(o)} style={{ left, width, top: 4 + lane * 48, "--set-hue": guildHue(guild.id), "--set-label-width": `${Math.max(0, Math.min(420, width - 20))}px` } as CSSProperties}>
+                                        return <button className={`set-event ${o.active ? "set-active" : ""} ${o.estimatedEnd ? "set-estimated" : ""} ${o.personal ? "set-personal-event" : ""}`} key={o.key} title={`${guild.name}\n${label(o)}`} aria-label={`${guild.name}: ${label(o)}`} onClick={() => setSelected(o)} style={{ left, width, top: 4 + lane * 48, "--set-hue": guildHue(guild.id), "--set-label-width": `${Math.max(0, Math.min(420, width - 20))}px` } as CSSProperties}>
                                             <span className="set-event-content">
                                                 <span className="set-event-head"><Icon guild={guild} /><strong>{o.event.name}</strong></span>
-                                                <span className="set-event-meta"><span className="set-event-guild">{guild.name}</span><span className="set-event-time">{o.active && <b className="set-live-dot" />} {time(o.start)} — {o.estimatedEnd ? "≈ " : ""}{time(o.end)}{o.recurrenceId && " ↻"}</span></span>
+                                                <span className="set-event-meta"><span className="set-event-guild">{guild.name}</span><span className="set-event-time">{o.personal && "▦ "}{o.active && <b className="set-live-dot" />} {time(o.start)} — {o.estimatedEnd ? "≈ " : ""}{time(o.end)}{o.recurrenceId && " ↻"}</span></span>
                                             </span>
                                         </button>;
                                     })}
@@ -260,17 +306,18 @@ export function Timeline(props: TimelineProps) {
             {selectedCurrent && selectedGuild && <aside className="set-detail">
                 <button className="set-detail-close" aria-label={t("closeDetail")} onClick={() => setSelected(null)}>✕</button>
                 {selectedCurrent.event.image && <img className="set-cover" src={`https://cdn.discordapp.com/guild-events/${selectedCurrent.event.id}/${selectedCurrent.event.image}.webp?size=1024`} alt="" />}
-                <div className="set-detail-content"><a className="set-detail-guild set-guild-link" href={`/channels/${selectedGuild.id}`} title={t("openServer", { server: selectedGuild.name })} onClick={event => {
+                <div className="set-detail-content">{selectedGuild.id === "@personal" ? <div className="set-detail-guild"><Icon guild={selectedGuild} />{t("personalEvents")}</div> : <a className="set-detail-guild set-guild-link" href={`/channels/${selectedGuild.id}`} title={t("openServer", { server: selectedGuild.name })} onClick={event => {
                     event.preventDefault();
                     props.onGuild(selectedGuild.id);
-                }}><Icon guild={selectedGuild} />{selectedGuild.name}</a>
+                }}><Icon guild={selectedGuild} />{selectedGuild.name}</a>}
                     {selectedCurrent.active && <span className="set-live-badge">{t("live")}</span>}
                     <h2>{selectedCurrent.event.name}</h2><p className="set-detail-time">{dateTime(selectedCurrent.start)}<br />{t("until")} {selectedCurrent.estimatedEnd ? "≈ " : ""}{dateTime(selectedCurrent.end)}</p>
+                    {selectedCurrent.personal && <div className="set-personal-controls"><p className="set-muted">{t("personalHint")}</p><label>{t("savedDuration")}<DurationInput key={selectedCurrent.key} minutes={selectedCurrent.personal.minutes} label={t("savedDuration")} onChange={minutes => props.onEditPersonal(selectedCurrent.key, minutes)} /></label><button className="set-delete" onClick={() => props.onRemovePersonal(selectedCurrent.key)}>{t("removeSaved")}</button></div>}
                     {selectedCurrent.estimatedEnd && <p className="set-muted">{t("estimateHint")}</p>}
                     {selectedCurrent.recurrenceId && <p className="set-muted">↻ {t("repeatedEvent")}</p>}
                     {selectedCurrent.event.entity_metadata?.location && <p>⌖ {selectedCurrent.event.entity_metadata.location}</p>}
                     <p className="set-description">{selectedCurrent.event.description || t("noDescription")}</p>
-                    <button className="set-primary" onClick={() => props.onEvent(selectedCurrent)}>{t("openEvent")}</button>
+                    <button className="set-primary" onClick={() => props.onEvent(selectedCurrent)}>{t(selectedCurrent.personal ? "openMessage" : "openEvent")}</button>
                 </div>
             </aside>}
         </div>

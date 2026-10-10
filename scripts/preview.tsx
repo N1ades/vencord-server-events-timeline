@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { useState } from "@webpack/common";
+import { useEffect, useRef, useState } from "@webpack/common";
 import * as React from "react";
 import { createRoot } from "react-dom/client";
 
@@ -14,6 +14,8 @@ import { Timeline } from "../Timeline";
 import type { Guild, GuildScheduledEvent } from "@vencord/discord-types";
 
 import { recurrenceDates } from "./recurrence.mjs";
+import { CalendarFocus, editPersonal, PersonalEvent, personalId, removePersonal, savePersonal, validMinutes } from "../personal";
+import { TimestampBadge } from "../TimestampBadge";
 
 const midnight = new Date(`${localDate(new Date())}T00:00:00`).getTime();
 const guilds = [
@@ -63,13 +65,33 @@ function Preview() {
     const [hidden, setHidden] = useState<string[]>([]);
     const [backgroundClicks, setBackgroundClicks] = useState(0);
     const [openedGuild, setOpenedGuild] = useState<string | null>(null);
+    const [personalEvents, setPersonalEvents] = useState<PersonalEvent[]>(() => {
+        try { return JSON.parse(localStorage.getItem("timeline-demo-saved") ?? "[]"); } catch { return []; }
+    });
+    const [personalMinutes, setPersonalMinutes] = useState(() => Number(localStorage.getItem("timeline-demo-minutes")) || 60);
+    const [focus, setFocus] = useState<CalendarFocus>();
+    const nonce = useRef(0);
+    useEffect(() => { localStorage.setItem("timeline-demo-saved", JSON.stringify(personalEvents)); }, [personalEvents]);
+    useEffect(() => { localStorage.setItem("timeline-demo-minutes", String(personalMinutes)); }, [personalMinutes]);
+    const seconds = Math.floor((midnight + 5 * 24 * HOUR + 18 * HOUR) / 1000);
+    const id = personalId("900", "901", seconds);
+    const saved = personalEvents.some(event => event.id === id);
+    function openSaved() { setFocus({ id, nonce: ++nonce.current }); }
+    function addSaved() {
+        setPersonalEvents(events => savePersonal(events, { id, channelId: "900", messageId: "901", guildId: "201", guildName: "Neon District", guildIcon: null, title: "Planning meetup", description: `Synthetic message: Planning meetup <t:${seconds}:F>`, start: seconds * 1000, minutes: validMinutes(personalMinutes) ? personalMinutes : 60 }));
+        openSaved();
+    }
     return <><button id="preview-discord-background" aria-label="Discord background" onClick={() => setBackgroundClicks(backgroundClicks + 1)} style={{ position: "fixed", inset: 0, width: "100%", height: "100%", background: "#0d0e13" }} />
         <output id="preview-background-clicks" style={{ position: "fixed", bottom: 0, left: 0, color: "white", fontSize: 10 }}>Background clicks: {backgroundClicks}{openedGuild && ` · Opened server: ${openedGuild}`}</output>
+        <div id="preview-message" style={{ position: "fixed", bottom: 8, left: 160, color: "white", zIndex: 20, fontSize: 12 }}>Preview message: Planning meetup <time>{new Date(seconds * 1000).toLocaleString("en-US")}</time>{saved && <TimestampBadge label="Open in calendar" onOpen={openSaved} />} <button onClick={addSaved}>{saved ? "Open saved timestamp" : "Add timestamp to calendar"}</button></div>
         <div id="preview-discord-modal-layer" style={{ position: "fixed", inset: 24, pointerEvents: "none", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <div className="set-dialog"><Timeline
         guilds={guilds} events={events} load={{ loading: false, done: 6, total: 6, errors: [], updated: Date.now() }}
         duration={2} recurrenceDates={recurrenceDates} hiddenGuilds={hidden} initialView="timeline" initialZoom={140}
         language={language} discordLocale="en-US" onLanguageChange={(language: Language | "auto") => { setLanguage(language); localStorage.setItem("timeline-demo-language", language); }}
+        personalEvents={personalEvents} personalMinutes={personalMinutes} focus={focus} onPersonalMinutes={setPersonalMinutes}
+        onEditPersonal={(id, minutes) => setPersonalEvents(events => editPersonal(events, id, minutes))}
+        onRemovePersonal={id => setPersonalEvents(events => removePersonal(events, id))}
         onHiddenChange={setHidden} onViewChange={() => {}} onZoomChange={() => {}} onRefresh={() => {}}
         onEvent={() => {}} onClose={() => {}} onGuild={id => setOpenedGuild(guilds.find(guild => guild.id === id)?.name ?? id)}
     /></div></div></>;

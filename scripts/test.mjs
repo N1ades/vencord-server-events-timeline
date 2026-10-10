@@ -9,17 +9,64 @@ import { recurrenceDates } from "./recurrence.mjs";
 
 const dir = resolve(".output/tests");
 await mkdir(dir, { recursive: true });
-for (const name of ["core", "loader", "i18n"]) {
+for (const name of ["core", "loader", "i18n", "personal"]) {
     await build({ entryPoints: [`${name}.ts`], outfile: `${dir}/${name}.mjs`, bundle: true, platform: "node", format: "esm" });
 }
 const { HOUR, expandEvents, layoutLanes, recurrenceId, snowflakeTime, dayWindow, timelineWindow, extendTimeline, shiftCalendarDays } = await import(pathToFileURL(`${dir}/core.mjs`).href);
 const { EventLoader } = await import(pathToFileURL(`${dir}/loader.mjs`).href);
 const { messages, languages, resolveLanguage, translator } = await import(pathToFileURL(`${dir}/i18n.mjs`).href);
+const { parsedTimestamps, personalId, personalTitle, personalOccurrence, savePersonal, editPersonal, removePersonal, validMinutes } = await import(pathToFileURL(`${dir}/personal.mjs`).href);
 const from = Date.parse("2026-10-06T00:00:00Z");
 const to = from + 24 * HOUR;
 const date = ms => new Date(ms).toISOString();
 const event = (values = {}) => ({ id: "100", guild_id: "server", name: "Test", status: 1, scheduled_start_time: date(from + 18 * HOUR), scheduled_end_time: date(from + 20 * HOUR), recurrence_rule: null, guild_scheduled_event_exceptions: [], ...values });
 const expand = (events, dates = () => []) => expandEvents(events, from, to, 2, dates);
+
+test("timestamp selection walks rendered markdown, ignoring code and deduplicating formats", () => {
+    const ast = [{ type: "paragraph", content: [
+        { type: "timestamp", timestamp: "1791309600", format: "F" },
+        { type: "timestamp", timestamp: "1791309600", format: "R" },
+        { type: "inlineCode", content: "<t:1791396000>" },
+        { type: "timestamp", timestamp: "invalid" },
+        { type: "timestamp", timestamp: "99999999999999999" }
+    ] }, { type: "list", items: [[{ type: "timestamp", timestamp: "-1" }]] }, { type: "codeBlock", content: "<t:1791396000>" }];
+    assert.deepEqual(parsedTimestamps(ast), [1791309600, -1]);
+    assert.notEqual(personalId("a", "m1", 1), personalId("a", "m2", 1));
+    assert.notEqual(personalId("a", "m1", 1), personalId("b", "m1", 1));
+    assert.equal(personalTitle("**Meetup** <t:1791309600:F> <@123>", "Fallback"), "Meetup");
+    assert.equal(personalTitle("<t:1791309600:R>", "Fallback"), "Fallback");
+});
+
+test("saved timestamps persist exact times, duration, source and identity without duplicates", () => {
+    const saved = { id: personalId("channel", "message", from / 1000), channelId: "channel", messageId: "message", guildId: "server", guildName: "Server", guildIcon: null, title: "Meetup", description: "Source", start: from, minutes: 60 };
+    const events = savePersonal([], saved);
+    assert.equal(savePersonal(events, { ...saved, minutes: 120 }), events);
+    const restored = JSON.parse(JSON.stringify({ accountA: events, accountB: [] }));
+    assert.deepEqual(restored.accountA, events);
+    assert.deepEqual(restored.accountB, []);
+    const occurrence = personalOccurrence(restored.accountA[0], from + HOUR / 2);
+    assert.equal(occurrence.start, from);
+    assert.equal(occurrence.end, from + HOUR);
+    assert.equal(occurrence.active, true);
+    assert.equal(occurrence.estimatedEnd, false);
+    assert.equal(occurrence.recurrenceId, null);
+    assert.equal(occurrence.personal.messageId, "message");
+    assert.equal(personalOccurrence(saved, from + HOUR).active, false);
+});
+
+test("duration changes stay local to the selected saved event and deletion removes it", () => {
+    const events = [{ id: "one", start: from + 23 * HOUR, minutes: 60 }, { id: "two", start: from, minutes: 60 }];
+    const edited = editPersonal(events, "one", 150);
+    assert.equal(edited[0].minutes, 150);
+    assert.equal(edited[1], events[1]);
+    assert.equal(personalOccurrence({ ...edited[0], title: "Night", description: "" }).end, from + 25.5 * HOUR);
+    for (const invalid of [0, -1, .5, NaN, Infinity, 525601]) {
+        assert.equal(validMinutes(invalid), false);
+        assert.equal(editPersonal(events, "one", invalid), events);
+    }
+    assert.deepEqual(removePersonal(edited, "one"), [events[1]]);
+    assert.equal(events[0].minutes, 60);
+});
 
 test("settings safely initialize before plugin registration and use automatic or explicitly selected translations", async () => {
     const result = await build({

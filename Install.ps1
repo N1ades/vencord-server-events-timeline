@@ -16,7 +16,7 @@ if ($LASTEXITCODE -ne 0 -or [int]$nodeVersion.TrimStart('v').Split('.')[0] -lt 2
 
 $source = (Resolve-Path -LiteralPath $PSScriptRoot).Path
 $target = [System.IO.Path]::GetFullPath((Join-Path $repo 'src\userplugins\serverEventsTimeline'))
-$files = @('index.tsx', 'Timeline.tsx', 'core.ts', 'loader.ts', 'i18n.ts', 'settings.ts', 'style.css', 'LICENSE', 'README.md')
+$files = @('index.tsx', 'Timeline.tsx', 'TimestampBadge.tsx', 'core.ts', 'personal.ts', 'loader.ts', 'i18n.ts', 'settings.ts', 'style.css', 'LICENSE', 'README.md')
 foreach ($file in $files) {
     if (-not (Test-Path -LiteralPath (Join-Path $source $file))) {
         throw "Missing plugin file: $file. Extract the complete repository before installing."
