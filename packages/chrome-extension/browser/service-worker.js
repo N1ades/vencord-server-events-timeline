@@ -79,6 +79,7 @@ function publication(entry) {
         title: boundedText(entry.title, 200), start: boundedText(entry.start, 40), end: boundedText(entry.end, 40),
         desc: boundedText(entry.desc, 1000), location: boundedText(entry.location, 200),
         group: boundedText(entry.group, 100), url: link, status: ["active", "completed"].includes(entry.status) ? entry.status : "scheduled",
+        ...(typeof entry.guildIcon === "string" ? { guild_icon: entry.guildIcon } : {}),
         ...(typeof entry.recurrence === "string" ? { recurrence: entry.recurrence } : {})
     };
 }
@@ -113,13 +114,19 @@ async function enqueue(message) {
 async function sendPublication(body, token) {
     const { guild, ...fields } = JSON.parse(body);
     const url = new URL(timelineEndpoint);
-    url.search = new URLSearchParams({ ...fields, token });
+    const { desc, ...query } = fields;
+    url.search = new URLSearchParams({ ...query, token });
+    if (typeof desc === "string") {
+        const bytes = new TextEncoder().encode(desc);
+        url.searchParams.set("desc_b64", btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""));
+    }
     try {
         const response = await fetch(url, {
             method: "GET", cache: "no-store",
             credentials: "omit", redirect: "error", referrerPolicy: "no-referrer", signal: AbortSignal.timeout(7000)
         });
         if (response.status === 401 || response.status === 429 || response.status >= 500) return "retry";
+        if (response.status === 403 && !response.headers.get("content-type")?.includes("application/json")) return "rejected";
         const result = await response.json();
         if (result.ok || (result.error === "event_not_found" && fields.action === "cancel")) return "ok";
         return "rejected";

@@ -169,6 +169,21 @@ function mutation(params) {
         for (const [key, limit] of Object.entries(fieldLimits)) {
             if (params.has(key)) patch[key] = Array.from(params.get(key).trim()).slice(0, limit).join("");
         }
+        if (params.has("desc_b64")) {
+            const encoded = params.get("desc_b64");
+            if (!/^[A-Za-z0-9_-]{0,5334}$/.test(encoded) || params.has("desc")) bad("invalid_desc");
+            try {
+                const bytes = Buffer.from(encoded, "base64url");
+                if (bytes.toString("base64url") !== encoded) bad("invalid_desc");
+                const desc = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+                patch.desc = Array.from(desc.trim()).slice(0, fieldLimits.desc).join("");
+            } catch { bad("invalid_desc"); }
+        }
+        if (params.has("guild_icon")) {
+            const icon = params.get("guild_icon");
+            if (!/^discord-\d+$/.test(id) || (icon && !/^(?:a_)?[a-f0-9]{32}$/.test(icon))) bad("invalid_guild_icon");
+            patch.guild_icon = icon || null;
+        }
         for (const key of ["start", "end"]) if (params.has(key)) Object.assign(patch, dateFields(key, params.get(key).trim()));
         if (params.has("url")) patch.url = normalizeUrl(params.get("url").trim());
         if (params.has("tags")) {

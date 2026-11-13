@@ -20,6 +20,7 @@ interface PublishedEvent {
     url?: string;
     source: string;
     group?: string;
+    guild_icon?: string | null;
     tags: string[];
     priority: string;
     recurrence?: { rule: GuildScheduledEvent["recurrence_rule"]; exceptions: GuildScheduledEvent["guild_scheduled_event_exceptions"]; history?: { id: string; start: number; end: number; estimatedEnd?: boolean }[]; };
@@ -70,8 +71,10 @@ function Site() {
     const completed = new Set<string>();
     const events = items.flatMap(item => {
         const name = item.group || item.source;
-        const group = item.source + ":" + name;
-        groups.set(group, { id: group, name, icon: null } as Guild);
+        const discordGuild = /^https:\/\/discord\.com\/events\/(\d+)\/\d+(?:\?|$)/.exec(item.url ?? "")?.[1];
+        const group = discordGuild ?? item.source + ":" + name;
+        const icon = item.guild_icon ?? groups.get(group)?.icon ?? null;
+        groups.set(group, { id: group, name, icon } as Guild);
         const start = Date.parse(item.start);
         const active = start <= Date.now() && Date.now() < (item.end ? Date.parse(item.end) : start + 7_200_000);
         const event = {

@@ -3,12 +3,13 @@ import type { Guild, GuildScheduledEvent } from "@vencord/discord-types";
 import { expandEvents, HOUR, type RecurrenceDates } from "./core";
 
 export function discordPublications(guilds: Guild[], events: GuildScheduledEvent[], eligible: (event: GuildScheduledEvent) => boolean, dates: RecurrenceDates) {
-    const names = new Map(guilds.map(guild => [guild.id, guild.name]));
+    const byId = new Map(guilds.map(guild => [guild.id, guild]));
     const now = Date.now();
     const cutoff = now - 7 * 24 * HOUR;
     const data = [];
     for (const event of events) {
-        if (!eligible(event) || !names.has(event.guild_id)) continue;
+        const server = byId.get(event.guild_id);
+        if (!server || !eligible(event)) continue;
         const id = "discord-" + event.id;
         const guild = event.guild_id;
         if (event.status === 4) {
@@ -29,7 +30,7 @@ export function discordPublications(guilds: Guild[], events: GuildScheduledEvent
             action: "upsert", id, guild, title: event.name, start: new Date(start).toISOString(),
             end: end > start ? new Date(end).toISOString() : "",
             desc: event.description ?? "", location: event.entity_metadata?.location ?? "",
-            group: names.get(guild)!, status: event.status === 2 ? "active" : event.status === 3 && rule ? "completed" : "scheduled",
+            group: server.name, guildIcon: server.icon ?? "", status: event.status === 2 ? "active" : event.status === 3 && rule ? "completed" : "scheduled",
             recurrence: JSON.stringify(rule ? { rule, exceptions, history: expandEvents([{ ...event, status: 1 }], cutoff, now, 2, dates)
                 .filter(item => item.end <= now && !item.active)
                 .map(({ recurrenceId, start, end, estimatedEnd }) => ({ id: recurrenceId, start, end, estimatedEnd })) } : null)
