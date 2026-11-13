@@ -1,0 +1,7 @@
+html { color-scheme: dark; font: 15px system-ui, sans-serif; background: #16171c; color: #eeeef4; }
+main { max-width: 620px; margin: 32px auto; padding: 0 18px; }
+label { display: block; margin: 8px 0; }
+#token { width: min(100%, 420px); }
+fieldset { margin: 18px 0; border: 1px solid #615779; }
+button, #token { padding: 8px; font: inherit; }
+a { color: #c6bdff; }

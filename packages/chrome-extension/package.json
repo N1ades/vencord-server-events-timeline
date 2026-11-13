@@ -1,0 +1,7 @@
+{
+    "name": "@server-events-timeline/chrome-extension",
+    "private": true,
+    "type": "module",
+    "scripts": { "build": "node build.mjs" },
+    "dependencies": { "@server-events-timeline/vencord-plugin": "workspace:*" }
+}

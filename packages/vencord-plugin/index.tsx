@@ -13,13 +13,14 @@ import ErrorBoundary from "@components/ErrorBoundary";
 import definePlugin from "@utils/types";
 import type { GuildScheduledEventRecurrenceRule, Message, RenderModalProps } from "@vencord/discord-types";
 import { findByCodeLazy, findByPropsLazy } from "@webpack";
-import { ChannelStore, closeModal, Dialog, GuildScheduledEventStore, GuildStore, LocaleStore, Menu, NavigationRouter, openModal, Parser, PermissionsBits, PermissionStore, useEffect, useLayoutEffect, useRef, UserStore, useState, useStateFromStores } from "@webpack/common";
+import { ChannelStore, closeModal, Dialog, GuildRoleStore, GuildScheduledEventStore, GuildStore, LocaleStore, Menu, NavigationRouter, openModal, Parser, PermissionsBits, PermissionStore, useEffect, useLayoutEffect, useRef, UserStore, useState, useStateFromStores } from "@webpack/common";
 import type { ReactNode } from "react";
 
 import { Occurrence } from "./core";
 import { resolveLanguage, translator } from "./i18n";
 import { EventLoader } from "./loader";
 import { CalendarFocus, editPersonal, parsedTimestamps, PersonalEvent, personalId, personalTitle, removePersonal, savePersonal, validMinutes } from "./personal";
+import { discordPublications } from "./publish";
 import { settings } from "./settings";
 import { Timeline } from "./Timeline";
 import { TimestampBadge } from "./TimestampBadge";
@@ -117,7 +118,25 @@ function EventTimelineModal({ onClose }: RenderModalProps) {
 
     function refresh(force = false) {
         if (!enabled || data.user !== account) return;
-        void loader.refresh(Object.keys(GuildStore.getGuilds()), force);
+        const user = data.user;
+        void loader.refresh(Object.keys(GuildStore.getGuilds()), force).then(() => {
+            if (typeof IS_EXTENSION === "undefined" || !IS_EXTENSION || !enabled || !user || user !== account || user !== UserStore.getCurrentUser()?.id) return;
+            const guilds = Object.values(GuildStore.getGuilds());
+            const events = guilds.flatMap(guild => GuildScheduledEventStore.getGuildScheduledEventsForGuild(guild.id) ?? []);
+            const entries = discordPublications(guilds, events, event => {
+                if (!event.channel_id) return true;
+                const channel = ChannelStore.getChannel(event.channel_id);
+                const everyone = GuildRoleStore.getRole(event.guild_id, event.guild_id);
+                if (!channel || !everyone || !PermissionStore.can(PermissionsBits.VIEW_CHANNEL, channel)) return false;
+                const overwrite = channel.permissionOverwrites?.[event.guild_id];
+                const base = everyone.permissions;
+                const effective = overwrite ? (base & ~overwrite.deny) | overwrite.allow : base;
+                return Boolean(effective & PermissionsBits.VIEW_CHANNEL);
+            }, recurrenceDates);
+            window.postMessage({
+                type: "set:publish", guilds: guilds.map(({ id, name }) => ({ id, name })), entries
+            }, window.location.origin);
+        }).catch(() => { /* Discord rendering is independent of publication. */ });
     }
 
     useEffect(() => loader.subscribe(() => setLoad(loader.state)), []);
@@ -144,6 +163,9 @@ function EventTimelineModal({ onClose }: RenderModalProps) {
     return <Dialog className="set-dialog" style={{ pointerEvents: "auto" }} aria-label={translator(resolveLanguage(config.language ?? "auto", data.discordLocale)).t("title")} aria-modal="true" onKeyDown={event => {
         if (event.key === "Escape") { event.stopPropagation(); onClose(); }
     }}><ErrorBoundary><Timeline
+        actions={typeof IS_EXTENSION !== "undefined" && IS_EXTENSION && <button onClick={() => window.postMessage({ type: "set:options" }, window.location.origin)}>
+            {resolveLanguage(config.language ?? "auto", data.discordLocale) === "ru" ? "Публикация" : "Publishing"}
+        </button>}
         {...data} load={load} duration={config.defaultDuration} recurrenceDates={recurrenceDates}
         personalEvents={data.user ? config.personalEvents?.[data.user] ?? [] : []} personalMinutes={config.personalMinutes ?? 60} focus={focus}
         onPersonalMinutes={minutes => { settings.store.personalMinutes = minutes; }}
@@ -193,6 +215,7 @@ export default definePlugin({
     name: "ServerEventsTimeline",
     description: "A compact timeline of scheduled events from all your Discord servers, inspired by vrc.tl. Open it from the calendar button or /events-timeline.",
     authors: [{ name: "N1ades", id: 0n }],
+    enabledByDefault: typeof IS_EXTENSION !== "undefined" && IS_EXTENSION,
     dependencies: ["ServerListAPI"],
     settings,
     contextMenus: { message: messageMenu },

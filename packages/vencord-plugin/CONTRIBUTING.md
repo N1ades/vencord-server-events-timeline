@@ -1,23 +1,21 @@
 # Contributing
 
-Use Node.js 22 or newer. Install development dependencies with `npm ci`.
+Use Node.js 22 or newer. From the monorepo root, install development dependencies with `pnpm install --frozen-lockfile`.
 
 ```sh
-npm test
-npm run preview
+pnpm test
+pnpm preview
 ```
 
 The preview runs at http://127.0.0.1:8767 and contains only synthetic events. It shares the real timeline component and styles with the plugin, but mocks Discord's event actions and stores.
 
 ## Testing in Vencord
 
-Clone this repository directly into `src/userplugins/serverEventsTimeline` in a Vencord source checkout. Install Vencord's dependencies using the package manager specified in its `package.json`, then run these commands from the Vencord root:
+Copy `packages/vencord-plugin` into `src/userplugins/serverEventsTimeline` in a Vencord source checkout. Install Vencord's dependencies using the package manager specified in its `package.json`, then run these commands from the Vencord root:
 
 ```sh
-node node_modules/typescript/bin/tsc --noEmit
-node node_modules/eslint/bin/eslint.js src/userplugins/serverEventsTimeline/*.ts src/userplugins/serverEventsTimeline/*.tsx
-node scripts/build/build.mjs --disable-updater
-node scripts/build/buildWeb.mjs --skip-extension
+pnpm test:ts
+pnpm build --dev --disable-updater
 ```
 
 Restart Discord with the custom build installed. Check overlapping events, midnight boundaries, long events scrolling off the left edge, empty dates, recurring occurrences, and language changes. Native Discord integrations cannot be fully validated by the browser preview.

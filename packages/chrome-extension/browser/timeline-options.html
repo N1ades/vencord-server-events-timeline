@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Публикация событий Discord</title>
+    <link rel="stylesheet" href="timeline-options.css">
+    <script type="module" src="timeline-options.js" defer></script>
+</head>
+<body>
+    <main>
+        <h1>Публикация событий Discord</h1>
+        <p>События из выбранных серверов появятся на <a href="https://tl.nyades.dev/" target="_blank" rel="noopener noreferrer">tl.nyades.dev</a>. Личные таймстампы и события закрытых каналов остаются в Discord.</p>
+        <form>
+            <label for="token">Ключ записи Discord</label>
+            <input id="token" type="password" autocomplete="off" spellcheck="false">
+            <fieldset>
+                <legend>Серверы для публикации</legend>
+                <label><input id="all" type="checkbox"> Выбрать все, включая новые серверы</label>
+                <div id="guilds"></div>
+            </fieldset>
+            <button>Сохранить</button>
+            <p id="status" role="status"></p>
+        </form>
+    </main>
+</body>
+</html>

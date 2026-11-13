@@ -6,7 +6,7 @@
 
 import type { Guild, GuildScheduledEvent } from "@vencord/discord-types";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "@webpack/common";
-import type { CSSProperties, PointerEvent } from "react";
+import type { CSSProperties, PointerEvent, ReactNode } from "react";
 
 import { dayWindow, expandEvents, extendTimeline, guildHue, HOUR, layoutLanes, localDate, Occurrence, RecurrenceDates, shiftCalendarDays, timelineWindow } from "./core";
 import { Language, languages, resolveLanguage, translator } from "./i18n";
@@ -35,9 +35,21 @@ export interface TimelineProps {
     onViewChange(view: "timeline" | "list"): void;
     onZoomChange(zoom: number): void;
     onRefresh(): void;
-    onEvent(occurrence: Occurrence): void;
-    onGuild(guildId: string): void;
-    onClose(): void;
+    onEvent?(occurrence: Occurrence): void;
+    onGuild?(guildId: string): void;
+    onClose?(): void;
+    actions?: ReactNode;
+    focusEvent?: string;
+    publicView?: {
+        title: string;
+        subtitle: string;
+        source: string;
+        cached: string;
+        auto: string;
+        warning?: string;
+        url(id: string): string | undefined;
+        detail(id: string): ReactNode;
+    };
 }
 
 function Icon({ guild }: { guild: Guild; }) {
@@ -107,6 +119,8 @@ export function Timeline(props: TimelineProps) {
     const selectedPersonal = selected?.personal ? props.personalEvents.find(event => event.id === selected.key) : undefined;
     const selectedCurrent = selected?.personal ? selectedPersonal ? personalOccurrence(selectedPersonal, now) : null : selected ? occurrences.find(o => o.key === selected.key) ?? selected : null;
     const selectedGuild = selectedCurrent ? guildById.get(selectedCurrent.event.guild_id) : null;
+    const publicView = props.publicView;
+    const sourceUrl = selectedCurrent && publicView?.url(selectedCurrent.event.id);
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
     useEffect(() => {
@@ -212,16 +226,28 @@ export function Timeline(props: TimelineProps) {
         if (item) scroller.current.scrollTop = Math.max(0, item.lane * 48 - scroller.current.clientHeight / 2);
     }, [from, selectedCurrent?.key, props.focus?.nonce, props.hiddenGuilds, query, onlyActive]);
 
+    useLayoutEffect(() => {
+        if (!props.focusEvent) return;
+        const event = props.events.find(event => event.id === props.focusEvent);
+        if (!event) return;
+        const start = Date.parse(event.scheduled_start_time);
+        const [from, to] = timelineWindow(start);
+        const [occurrence] = expandEvents([event], from, to, props.duration, props.recurrenceDates);
+        if (!occurrence) return;
+        jumpTo(start, true);
+        setSelected(occurrence);
+    }, [props.focusEvent]);
+
     const style = { "--set-hour": `${pxPerHour}px` } as CSSProperties;
     return <div className="set-app" style={style} lang={locale}>
         <header className="set-header">
-            <div className="set-brand"><span className="set-logo">TL</span><div><h1>{t("title")}</h1><p>{t("subtitle")} · {timezone}</p></div></div>
+            <div className="set-brand"><span className="set-logo">TL</span><div><h1>{publicView?.title ?? t("title")}</h1><p>{publicView?.subtitle ?? t("subtitle")} · {timezone}</p></div></div>
             <div className="set-actions">
                 <select className="set-language" aria-label={t("language")} value={props.language} onChange={e => props.onLanguageChange(e.target.value as Language | "auto")}>
-                    <option value="auto">{t("auto")}</option>{languages.map(language => <option key={language.value} value={language.value}>{language.label}</option>)}
+                    <option value="auto">{publicView?.auto ?? t("auto")}</option>{languages.map(language => <option key={language.value} value={language.value}>{language.label}</option>)}
                 </select>
                 <button onClick={props.onRefresh} disabled={props.load.loading}>{props.load.loading ? `${props.load.done} / ${props.load.total}` : t("refresh")}</button>
-                <button className="set-close" aria-label={t("close")} onClick={props.onClose}>✕</button>
+                {props.actions}{props.onClose && <button className="set-close" aria-label={t("close")} onClick={props.onClose}>✕</button>}
             </div>
         </header>
         <div className="set-toolbar">
@@ -235,7 +261,7 @@ export function Timeline(props: TimelineProps) {
                 </select>
             </div>
             <input className="set-search" type="search" placeholder={t("searchPlaceholder")} aria-label={t("search")} value={query} onChange={e => setQuery(e.target.value)} />
-            <label className="set-personal-duration" title={t("newTimestampDuration")}><span>{t("timestamps")}</span><DurationInput minutes={props.personalMinutes} label={t("newTimestampDuration")} onChange={props.onPersonalMinutes} /><span>{t("minutes")}</span></label>
+            {!publicView && <label className="set-personal-duration" title={t("newTimestampDuration")}><span>{t("timestamps")}</span><DurationInput minutes={props.personalMinutes} label={t("newTimestampDuration")} onChange={props.onPersonalMinutes} /><span>{t("minutes")}</span></label>}
             <div className="set-actions">
                 <button aria-pressed={showFilters} aria-controls="set-server-filters" onClick={() => setShowFilters(!showFilters)}>{t("servers")}{hidden.size ? ` (${t("hidden", { count: props.guilds.filter(g => hidden.has(g.id)).length })})` : ""}</button>
                 <button aria-pressed={view === "timeline"} onClick={() => switchView("timeline")}>{t("timeline")}</button>
@@ -261,8 +287,9 @@ export function Timeline(props: TimelineProps) {
             <main className="set-main">
                 <div className="set-status" role="status">
                     <span>{new Date(dayWindow(day, 1)[0]).toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long", year: "numeric" })} · {count(visible.length, "events")} · {count(visibleGuildCount, "guilds")}</span>
-                    <span>{props.load.loading ? t("loadingServers", { done: props.load.done, total: props.load.total }) : props.load.updated ? t("checked", { time: time(props.load.updated) }) : t("cached")}</span>
+                    <span>{props.load.loading ? t("loadingServers", { done: props.load.done, total: props.load.total }) : props.load.updated ? t("checked", { time: time(props.load.updated) }) : publicView?.cached ?? t("cached")}</span>
                 </div>
+                {publicView?.warning && <div className="set-warning" role="alert">{publicView.warning}</div>}
                 {props.load.errors.length > 0 && <div className="set-warning">{t("warning", { count: props.load.errors.length, servers: props.load.errors.map(id => guildById.get(id)?.name ?? id).join(", ") })}</div>}
                 {view === "timeline"
                         ? <div className={`set-grid-scroll ${dragging ? "set-dragging" : ""}`} ref={scroller} onScroll={onScroll} tabIndex={0} role="region" aria-label={t("gridLabel")}
@@ -306,9 +333,9 @@ export function Timeline(props: TimelineProps) {
             {selectedCurrent && selectedGuild && <aside className="set-detail">
                 <button className="set-detail-close" aria-label={t("closeDetail")} onClick={() => setSelected(null)}>✕</button>
                 {selectedCurrent.event.image && <img className="set-cover" src={`https://cdn.discordapp.com/guild-events/${selectedCurrent.event.id}/${selectedCurrent.event.image}.webp?size=1024`} alt="" />}
-                <div className="set-detail-content">{selectedGuild.id === "@personal" ? <div className="set-detail-guild"><Icon guild={selectedGuild} />{t("personalEvents")}</div> : <a className="set-detail-guild set-guild-link" href={`/channels/${selectedGuild.id}`} title={t("openServer", { server: selectedGuild.name })} onClick={event => {
+                <div className="set-detail-content">{selectedGuild.id === "@personal" ? <div className="set-detail-guild"><Icon guild={selectedGuild} />{t("personalEvents")}</div> : !props.onGuild ? <div className="set-detail-guild"><Icon guild={selectedGuild} />{selectedGuild.name}</div> : <a className="set-detail-guild set-guild-link" href={`/channels/${selectedGuild.id}`} title={t("openServer", { server: selectedGuild.name })} onClick={event => {
                     event.preventDefault();
-                    props.onGuild(selectedGuild.id);
+                    props.onGuild?.(selectedGuild.id);
                 }}><Icon guild={selectedGuild} />{selectedGuild.name}</a>}
                     {selectedCurrent.active && <span className="set-live-badge">{t("live")}</span>}
                     <h2>{selectedCurrent.event.name}</h2><p className="set-detail-time">{dateTime(selectedCurrent.start)}<br />{t("until")} {selectedCurrent.estimatedEnd ? "≈ " : ""}{dateTime(selectedCurrent.end)}</p>
@@ -317,7 +344,9 @@ export function Timeline(props: TimelineProps) {
                     {selectedCurrent.recurrenceId && <p className="set-muted">↻ {t("repeatedEvent")}</p>}
                     {selectedCurrent.event.entity_metadata?.location && <p>⌖ {selectedCurrent.event.entity_metadata.location}</p>}
                     <p className="set-description">{selectedCurrent.event.description || t("noDescription")}</p>
-                    <button className="set-primary" onClick={() => props.onEvent(selectedCurrent)}>{t(selectedCurrent.personal ? "openMessage" : "openEvent")}</button>
+                    {publicView?.detail(selectedCurrent.event.id)}
+                    {sourceUrl && <a className="set-primary" href={sourceUrl} target="_blank" rel="noopener noreferrer">{publicView?.source}</a>}
+                    {props.onEvent && <button className="set-primary" onClick={() => props.onEvent?.(selectedCurrent)}>{t(selectedCurrent.personal ? "openMessage" : "openEvent")}</button>}
                 </div>
             </aside>}
         </div>

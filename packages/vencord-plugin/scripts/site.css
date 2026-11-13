@@ -1,0 +1,10 @@
+body { margin: 0; background: #0d0e13; }
+#root { min-height: 100dvh; display: grid; place-items: center; }
+.set-site { width: 100%; height: 100dvh; max-height: none; border: 0; border-radius: 0; }
+.set-detail-tags { overflow-wrap: anywhere; }
+@media (max-width: 540px) {
+    .set-site .set-header { flex-wrap: wrap; }
+    .set-site .set-detail { position: absolute; inset: auto 0 0; width: 100%; max-height: 65dvh; overflow: auto; z-index: 10; }
+    .set-site .set-workspace { position: relative; }
+}
+.set-site a.set-primary { display: inline-block; text-decoration: none; }

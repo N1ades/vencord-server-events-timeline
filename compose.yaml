@@ -1,0 +1,27 @@
+services:
+  server-events-timeline:
+    build:
+      context: .
+      dockerfile: packages/timeline-service/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      TIMELINE_ORIGIN: https://tl.nyades.dev
+    networks:
+      - npm
+    volumes:
+      - timeline-data:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8080/healthz').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))"]
+      interval: 30s
+      start_period: 5s
+      timeout: 4s
+    logging:
+      options:
+        max-size: "5m"
+        max-file: "3"
+networks:
+  npm:
+    external: true
+volumes:
+  timeline-data:
