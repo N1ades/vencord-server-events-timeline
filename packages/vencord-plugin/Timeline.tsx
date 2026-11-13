@@ -231,10 +231,13 @@ export function Timeline(props: TimelineProps) {
         const event = props.events.find(event => event.id === props.focusEvent);
         if (!event) return;
         const start = Date.parse(event.scheduled_start_time);
-        const [from, to] = timelineWindow(start);
-        const [occurrence] = expandEvents([event], from, to, props.duration, props.recurrenceDates);
+        const reference = event.recurrence_rule ? Date.now() : start;
+        const [from] = timelineWindow(reference);
+        const to = event.recurrence_rule ? shiftCalendarDays(reference, 370) : shiftCalendarDays(from, 21);
+        const matches = expandEvents([event], from, to, props.duration, props.recurrenceDates);
+        const occurrence = matches.find(entry => entry.end >= reference) ?? matches.at(-1);
         if (!occurrence) return;
-        jumpTo(start, true);
+        jumpTo(occurrence.start, true);
         setSelected(occurrence);
     }, [props.focusEvent]);
 

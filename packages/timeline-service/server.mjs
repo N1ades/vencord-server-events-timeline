@@ -92,6 +92,38 @@ function normalizeUrl(value) {
     return url.href;
 }
 
+function parseRecurrence(raw, previous, id) {
+    if (!/^discord-\d+$/.test(id) || raw.length > 12000) bad("invalid_recurrence");
+    let value;
+    try { value = JSON.parse(raw); } catch { bad("invalid_recurrence"); }
+    if (value === null) return previous?.history?.length ? { rule: null, exceptions: [], history: previous.history } : null;
+    const rule = value?.rule;
+    if (!rule || !Number.isFinite(Date.parse(rule.start)) || !Number.isInteger(rule.frequency) || rule.frequency < 0 || rule.frequency > 3 ||
+        !Number.isInteger(rule.interval) || rule.interval < 1 || rule.interval > 365 ||
+        (rule.end != null && !Number.isFinite(Date.parse(rule.end))) ||
+        (rule.count != null && (!Number.isInteger(rule.count) || rule.count < 1)) || !Array.isArray(value.exceptions) || value.exceptions.length > 500 ||
+        !Array.isArray(value.history) || value.history.length > 100) bad("invalid_recurrence");
+    for (const key of ["byWeekday", "by_weekday", "byMonth", "by_month", "byMonthDay", "by_month_day", "byYearDay", "by_year_day"]) {
+        if (rule[key] != null && (!Array.isArray(rule[key]) || rule[key].length > 366 || !rule[key].every(Number.isInteger))) bad("invalid_recurrence");
+    }
+    for (const key of ["byNWeekday", "by_n_weekday"]) {
+        if (rule[key] != null && (!Array.isArray(rule[key]) || rule[key].length > 35 || rule[key].some(day =>
+            !Number.isInteger(day?.day) || day.day < 0 || day.day > 6 || !Number.isInteger(day.n) || !day.n || Math.abs(day.n) > 53))) bad("invalid_recurrence");
+    }
+    for (const exception of value.exceptions) {
+        if (!/^\d{16,22}$/.test(exception?.event_exception_id) ||
+            [exception.scheduled_start_time, exception.scheduled_end_time].some(date => date != null && !Number.isFinite(Date.parse(date)))) bad("invalid_recurrence");
+    }
+    const history = new Map((previous?.history ?? []).map(item => [item.id, item]));
+    const now = Date.now();
+    for (const item of value.history) {
+        if (!/^\d{16,22}$/.test(item?.id) || !Number.isFinite(item.start) || !Number.isFinite(item.end) ||
+            item.start >= item.end || item.end > now + 60_000) bad("invalid_recurrence");
+        if (!history.has(item.id)) history.set(item.id, { id: item.id, start: item.start, end: item.end, estimatedEnd: Boolean(item.estimatedEnd) });
+    }
+    return { rule, exceptions: value.exceptions, history: [...history.values()].sort((a, b) => a.start - b.start) };
+}
+
 function mutation(params) {
     if (params.getAll("token").length > 1) bad("duplicate_parameter");
     const signature = digest(params.get("token") ?? "");
@@ -111,7 +143,7 @@ function mutation(params) {
         if (action !== "cancel" || !/^discord-\d+$/.test(id)) bad("invalid_series");
         const start = new Date().toISOString();
         const occurrences = [find.get(id), ...series.all(id + "-*")].filter(Boolean).map(parse)
-            .filter(event => event.status !== "cancelled" && (event.start >= start || event.end >= start));
+            .filter(event => event.status !== "cancelled" && (event.recurrence?.rule || event.start >= start || event.end >= start));
         if (!dryRun) {
             db.exec("BEGIN IMMEDIATE");
             try {
@@ -150,13 +182,14 @@ function mutation(params) {
         }
         if (params.has("status")) {
             const value = params.get("status");
-            if (!["scheduled", "active", "cancelled"].includes(value)) bad("invalid_status");
+            if (!["scheduled", "active", "cancelled", "completed"].includes(value)) bad("invalid_status");
             patch.status = value;
         }
         if (discord) {
             patch.source = "discord";
             if (patch.url && !/^https:\/\/discord\.com\/events\/\d+\/\d+(?:\?event_exception_id=\d+)?$/.test(patch.url)) bad("invalid_discord_url");
         }
+        if (params.has("recurrence")) patch.recurrence = parseRecurrence(params.get("recurrence"), previous?.recurrence, id);
         const duplicate = parse(findDuplicate.get(
             Object.hasOwn(patch, "url") ? patch.url : previous?.url ?? null,
             patch.start ?? previous?.start ?? null
@@ -176,11 +209,33 @@ function mutation(params) {
         if (event.status === "cancelled") status = "unchanged";
         event.status = "cancelled";
     }
+    const parentId = /^discord-\d+-\d+$/.test(id) ? id.slice(0, id.lastIndexOf("-")) : null;
+    if (parentId && ["add", "upsert"].includes(action) && parse(find.get(parentId))?.recurrence?.rule) conflict("series_managed");
     if (!dryRun && status !== "unchanged") {
         if (action === "delete") remove.run(id);
         else {
             event.updated_at = new Date().toISOString();
             event.created_at ??= event.updated_at;
+            if (event.recurrence?.rule && /^discord-\d+$/.test(event.id)) {
+                db.exec("BEGIN IMMEDIATE");
+                try {
+                    const archived = new Map(event.recurrence.history.map(item => [item.id, item]));
+                    for (const row of series.all(event.id + "-*")) {
+                        const legacy = parse(row);
+                        const start = Date.parse(legacy.start);
+                        const end = legacy.end ? Date.parse(legacy.end) : start + 7_200_000;
+                        const occurrence = legacy.id.slice(event.id.length + 1);
+                        if (legacy.status !== "cancelled" && end <= Date.now() && !archived.has(occurrence)) {
+                            archived.set(occurrence, { id: occurrence, start, end, estimatedEnd: !legacy.end });
+                        }
+                        remove.run(legacy.id);
+                    }
+                    event.recurrence.history = [...archived.values()].sort((a, b) => a.start - b.start);
+                    save.run(event.id, event.start, event.url ?? null, event.updated_at, JSON.stringify(event));
+                    db.exec("COMMIT");
+                } catch (error) { db.exec("ROLLBACK"); throw error; }
+                return { ok: true, action, id: event.id, status, url: eventUrl(event.id) };
+            }
             save.run(event.id, event.start, event.url ?? null, event.updated_at, JSON.stringify(event));
         }
     }

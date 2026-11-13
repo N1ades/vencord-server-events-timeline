@@ -45,10 +45,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 const timelineAlarm = "timelinePublish";
 const timelineEndpoint = "https://tl.nyades.dev/timeline";
+const publicationConcurrency = 6;
 const snowflake = /^\d{16,22}$/;
 const discordId = /^discord-(\d{16,22})(?:-(\d{16,22}))?$/;
 let storageQueue = Promise.resolve();
 let publishing;
+let publishAgain = false;
 
 function withQueue(task) {
     const next = storageQueue.then(task, task);
@@ -76,7 +78,8 @@ function publication(entry) {
         action: "upsert", id: entry.id, guild: entry.guild,
         title: boundedText(entry.title, 200), start: boundedText(entry.start, 40), end: boundedText(entry.end, 40),
         desc: boundedText(entry.desc, 1000), location: boundedText(entry.location, 200),
-        group: boundedText(entry.group, 100), url: link, status: entry.status === "active" ? "active" : "scheduled"
+        group: boundedText(entry.group, 100), url: link, status: ["active", "completed"].includes(entry.status) ? entry.status : "scheduled",
+        ...(typeof entry.recurrence === "string" ? { recurrence: entry.recurrence } : {})
     };
 }
 
@@ -93,6 +96,11 @@ async function enqueue(message) {
         for (const raw of message.entries.slice(0, 10_000)) {
             const entry = publication(raw);
             if (!entry || !selected.has(entry.guild)) continue;
+            if (entry.recurrence !== undefined || entry.series === "1") {
+                for (const id of Object.keys(timelinePending)) {
+                    if (id.startsWith(entry.id + "-")) delete timelinePending[id];
+                }
+            }
             const body = JSON.stringify(entry);
             if (!publishing && timelineSent[entry.id]?.body === body) delete timelinePending[entry.id];
             else timelinePending[entry.id] = body;
@@ -119,8 +127,16 @@ async function sendPublication(body, token) {
 }
 
 function drain() {
-    if (publishing) return publishing;
-    publishing = drainQueue().finally(() => { publishing = undefined; });
+    if (publishing) {
+        publishAgain = true;
+        return publishing;
+    }
+    publishing = (async () => {
+        do {
+            publishAgain = false;
+            if (await drainQueue()) break;
+        } while (publishAgain);
+    })().finally(() => { publishing = undefined; });
     return publishing;
 }
 
@@ -130,21 +146,31 @@ async function drainQueue() {
         await chrome.alarms.clear(timelineAlarm);
         return;
     }
-    const pending = Object.entries(timelinePending).filter(([, body]) => allowed(timelineConfig, JSON.parse(body).guild));
+    const now = Date.now();
+    const pending = Object.entries(timelinePending).map(([id, body]) => {
+        const { action, guild, start, end } = JSON.parse(body);
+        const from = Date.parse(start);
+        const to = Date.parse(end) || from + 7_200_000;
+        const distance = action === "cancel" ? -1 : Math.max(0, from - now, now - to);
+        return { id, body, guild, distance };
+    }).filter(entry => allowed(timelineConfig, entry.guild)).sort((a, b) => a.distance - b.distance);
     if (!pending.length) {
         await chrome.alarms.clear(timelineAlarm);
         return;
     }
     await chrome.alarms.create(timelineAlarm, { delayInMinutes: 2 });
     const results = [];
-    for (let offset = 0; offset < Math.min(pending.length, 40); offset += 4) {
-        const batch = pending.slice(offset, offset + 4);
+    for (let offset = 0; offset < pending.length; offset += publicationConcurrency) {
+        const batch = pending.slice(offset, offset + publicationConcurrency);
         const current = (await chrome.storage.local.get("timelineConfig")).timelineConfig;
         if (current?.token !== timelineConfig.token) break;
-        const outcomes = await Promise.all(batch.map(([, body]) => allowed(current, JSON.parse(body).guild)
+        const outcomes = await Promise.all(batch.map(({ body, guild }) => allowed(current, guild)
             ? sendPublication(body, current.token) : "skipped"));
-        results.push(...batch.map(([id, body], index) => ({ id, body, result: outcomes[index] })));
+        results.push(...batch.map(({ id, body }, index) => ({ id, body, result: outcomes[index] })));
         if (outcomes.includes("retry")) break;
+        if ((offset + publicationConcurrency) % 60 === 0) {
+            await chrome.alarms.create(timelineAlarm, { delayInMinutes: 2 });
+        }
     }
     await withQueue(async () => {
         const { timelinePending = {}, timelineSent = {} } = await chrome.storage.local.get(["timelinePending", "timelineSent"]);
@@ -169,6 +195,9 @@ async function drainQueue() {
             }
         });
     });
+    const retry = results.some(row => row.result === "retry");
+    if (!retry && results.length === pending.length) await chrome.alarms.clear(timelineAlarm);
+    return retry;
 }
 
 chrome.alarms.onAlarm.addListener(({ name }) => { if (name === timelineAlarm) void drain().catch(() => {}); });
