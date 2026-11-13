@@ -94,7 +94,8 @@ function normalizeUrl(value) {
 
 function mutation(params, authorization) {
     const bearer = authorization?.match(/^Bearer (\S+)$/i)?.[1];
-    const signature = digest(bearer ?? params.get("token") ?? "");
+    if (params.has("token")) bad("token_in_query");
+    const signature = digest(bearer ?? "");
     const discord = timingSafeEqual(signature, discordDigest);
     if (!discord && !timingSafeEqual(signature, adminDigest)) throw new HttpError(401, "unauthorized");
     for (const key of params.keys()) if (params.getAll(key).length > 1) bad("duplicate_parameter");

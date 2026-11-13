@@ -4,7 +4,7 @@ The public site reuses the Vencord calendar, styles, and layout. SQLite stores e
 
 ## Deploy
 
-Create a private `.env` from `.env.example` with two independently generated random secrets (at least 32 characters each). Run `docker compose up -d --build --wait`. The service listens on 8080 in Docker's existing `npm` network. Forward the HTTPS host to `server-events-timeline:8080` and keep access logging disabled on the exact write endpoint. If a WAF handles the host, suppress audit logging for the write endpoint so it does not include query credentials. Back up the named volume using SQLite's backup command or a coordinated volume snapshot.
+Create a private `.env` from `.env.example` with two independently generated random secrets (at least 32 characters each). Run `docker compose up -d --build --wait`. The service listens on 8080 in Docker's existing `npm` network. Forward the HTTPS host to `server-events-timeline:8080` and keep access logging disabled on the exact write endpoint. If a WAF handles the host, suppress audit logging for the write endpoint to keep authorization headers out of logs. Back up the named volume using SQLite's backup command or a coordinated volume snapshot.
 
 ## HTTP
 
@@ -18,7 +18,7 @@ Create a private `.env` from `.env.example` with two independently generated ran
 | `/healthz` | Server and database health |
 | `/timeline?action=upsert&id=…` | Authenticated write with JSON result |
 
-Use `Authorization: Bearer …` on the GET write, or `token=…` for tools that open URLs only. The Discord key may only upsert or cancel Discord IDs. A request URL with a query credential grants write access. Put it only in your private automation.
+Send the key in `Authorization: Bearer …` on GET writes. The server rejects `token` in the query string. Store credentials in the private HTTP client settings. The Discord key may only upsert or cancel Discord IDs.
 
 | Action | Fields |
 | --- | --- |
