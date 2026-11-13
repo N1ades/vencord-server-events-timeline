@@ -1,6 +1,6 @@
 # Инструкция для Grok Automation
 
-Скопируй блок ниже в текущую автоматизацию. Передай ей значение `TIMELINE_TOKEN` в закрытых настройках HTTP-инструмента. Инструмент должен уметь выполнять GET с заголовком `Authorization: Bearer <TIMELINE_TOKEN>`. Если Grok умеет только открывать ссылки, он сможет читать календарь. Для записи передавай подготовленные параметры доверенной автоматизации с HTTP-клиентом, где ключ хранится как секрет.
+Скопируй блок ниже в текущую автоматизацию. Сохрани значение `TIMELINE_TOKEN` в закрытых настройках и подставляй его как query-параметр `token` при открытии GET-ссылки записи. Используй HTTPS.
 
 ~~~text
 В конце каждого запуска обновляй общий календарь https://tl.nyades.dev/.
@@ -26,10 +26,7 @@
 
 4. Для каждого подтверждённого события выполни отдельный GET на
    https://tl.nyades.dev/timeline с параметрами:
-   action=upsert, id, title, start, url, source=grok.
-   Передай ключ только в заголовке Authorization: Bearer <TIMELINE_TOKEN>.
-   Если инструмент не умеет добавить заголовок, выведи подготовленные поля для
-   доверенного HTTP-клиента и пометь событие как ещё не опубликованное.
+   token=<TIMELINE_TOKEN>, action=upsert, id, title, start, url, source=grok.
    Для существующей карточки сохраняй её source и group, включая записи Discord.
    Добавляй известные end, location, group (организатор), tags (через запятую),
    desc и priority (low, normal, high, rare). Для отмены используй action=cancel
@@ -53,8 +50,5 @@
 Пример проверки без записи
 
 ~~~text
-https://tl.nyades.dev/timeline?action=upsert&id=vrc-example-123&title=VRChat%20Meetup&start=2026-11-15T16%3A00%3A00%2B03%3A00&source=grok&url=https%3A%2F%2Fx.com%2Fexample%2Fstatus%2F123&tags=vrchat%2Cmeetup&dry_run=1
+https://tl.nyades.dev/timeline?action=upsert&id=vrc-example-123&title=VRChat%20Meetup&start=2026-11-15T16%3A00%3A00%2B03%3A00&source=grok&url=https%3A%2F%2Fx.com%2Fexample%2Fstatus%2F123&tags=vrchat%2Cmeetup&dry_run=1&token=REPLACE_WITH_TIMELINE_TOKEN
 ~~~
-
-
-Передай отдельно заголовок `Authorization: Bearer <TIMELINE_TOKEN>`.

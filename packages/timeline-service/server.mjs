@@ -92,10 +92,9 @@ function normalizeUrl(value) {
     return url.href;
 }
 
-function mutation(params, authorization) {
-    const bearer = authorization?.match(/^Bearer (\S+)$/i)?.[1];
-    if (params.has("token")) bad("token_in_query");
-    const signature = digest(bearer ?? "");
+function mutation(params) {
+    if (params.getAll("token").length > 1) bad("duplicate_parameter");
+    const signature = digest(params.get("token") ?? "");
     const discord = timingSafeEqual(signature, discordDigest);
     if (!discord && !timingSafeEqual(signature, adminDigest)) throw new HttpError(401, "unauthorized");
     for (const key of params.keys()) if (params.getAll(key).length > 1) bad("duplicate_parameter");
@@ -209,7 +208,7 @@ createServer({ maxHeaderSize: 24_576, requestTimeout: 15_000 }, (request, respon
             response.setHeader("Allow", pathname === "/timeline" ? "GET" : "GET, HEAD");
             throw new HttpError(405, "method_not_allowed");
         }
-        if (pathname === "/timeline") return send(response, 200, mutation(searchParams, request.headers.authorization));
+        if (pathname === "/timeline") return send(response, 200, mutation(searchParams));
         if (pathname === "/healthz") { db.prepare("SELECT 1").get(); return send(response, 200, { ok: true }); }
         if (pathname === "/timeline/feed") return send(response, 200, { ok: true, events: all.all().map(parse) });
         if (pathname === "/timeline/latest") {

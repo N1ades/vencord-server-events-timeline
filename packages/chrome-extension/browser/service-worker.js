@@ -105,10 +105,10 @@ async function enqueue(message) {
 async function sendPublication(body, token) {
     const { guild, ...fields } = JSON.parse(body);
     const url = new URL(timelineEndpoint);
-    url.search = new URLSearchParams(fields);
+    url.search = new URLSearchParams({ ...fields, token });
     try {
         const response = await fetch(url, {
-            method: "GET", headers: { Authorization: "Bearer " + token }, cache: "no-store",
+            method: "GET", cache: "no-store",
             credentials: "omit", redirect: "error", referrerPolicy: "no-referrer", signal: AbortSignal.timeout(7000)
         });
         if (response.status === 401 || response.status === 429 || response.status >= 500) return "retry";
