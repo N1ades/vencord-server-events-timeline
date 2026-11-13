@@ -34,3 +34,5 @@ Optional fields are `end`, `location`, `url`, `tags`, `desc`, `source`, `group`,
 SQLite enforces one row per ID and one row per normalized source link plus UTC start. An identical upsert returns `unchanged`. A compatible upsert with the same link and start can return an existing ID. For a reschedule, use the ID returned by the API. Add `dry_run=1` to validate and preview the outcome without writing. Successful writes return `ok`, `action`, `status`, `id`, and the public `url` when applicable. Errors have `ok: false` and an `error` code.
 
 Discord recurring events are stored under the base event ID with their recurrence rule, exceptions and completed occurrences. A series update preserves the observed start and end of completed occurrences. The public calendar expands future dates in the visible window. When a series arrives, matching legacy occurrence rows are merged and removed in one transaction.
+
+The site serves Discord guild icons from the same origin. The service downloads each published guild ID and icon hash on first request and stores the WebP under `/data/guild-icons` in the existing Docker volume. A changed icon hash gets a new cache file.

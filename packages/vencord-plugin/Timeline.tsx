@@ -49,12 +49,13 @@ export interface TimelineProps {
         warning?: string;
         url(id: string): string | undefined;
         detail(id: string): ReactNode;
+        iconUrl(guild: Guild): string;
     };
 }
 
-function Icon({ guild }: { guild: Guild; }) {
+function Icon({ guild, iconUrl }: { guild: Guild; iconUrl?: (guild: Guild) => string; }) {
     return guild.icon
-        ? <img className="set-guild-icon" src={`https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.webp?size=64`} alt="" />
+        ? <img className="set-guild-icon" src={iconUrl?.(guild) ?? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.webp?size=64`} alt="" />
         : <span className="set-guild-icon set-initial">{guild.name.slice(0, 2)}</span>;
 }
 
@@ -280,7 +281,7 @@ export function Timeline(props: TimelineProps) {
                         const count = occurrences.filter(o => o.event.guild_id === guild.id).length;
                         return <label className="set-server" key={guild.id} title={guild.name}>
                             <input type="checkbox" checked={!hidden.has(guild.id)} onChange={e => props.onHiddenChange(e.target.checked ? props.hiddenGuilds.filter(id => id !== guild.id) : [...props.hiddenGuilds, guild.id])} />
-                            <Icon guild={guild} /><span>{guild.name}</span><small>{count || "—"}</small>
+                            <Icon guild={guild} iconUrl={props.publicView?.iconUrl} /><span>{guild.name}</span><small>{count || "—"}</small>
                         </label>;
                     })}
                 </div>
@@ -312,7 +313,7 @@ export function Timeline(props: TimelineProps) {
                                         const guild = guildById.get(o.event.guild_id)!;
                                         return <button className={`set-event ${o.active ? "set-active" : ""} ${o.estimatedEnd ? "set-estimated" : ""} ${o.personal ? "set-personal-event" : ""}`} key={o.key} title={`${guild.name}\n${label(o)}`} aria-label={`${guild.name}: ${label(o)}`} onClick={() => setSelected(o)} style={{ left, width, top: 4 + lane * 48, "--set-hue": guildHue(guild.id), "--set-label-width": `${Math.max(0, Math.min(420, width - 20))}px` } as CSSProperties}>
                                             <span className="set-event-content">
-                                                <span className="set-event-head"><Icon guild={guild} /><strong>{o.event.name}</strong></span>
+                                                <span className="set-event-head"><Icon guild={guild} iconUrl={props.publicView?.iconUrl} /><strong>{o.event.name}</strong></span>
                                                 <span className="set-event-meta"><span className="set-event-guild">{guild.name}</span><span className="set-event-time">{o.personal && "▦ "}{o.active && <b className="set-live-dot" />} {time(o.start)} — {o.estimatedEnd ? "≈ " : ""}{time(o.end)}{o.recurrenceId && " ↻"}</span></span>
                                             </span>
                                         </button>;
@@ -328,7 +329,7 @@ export function Timeline(props: TimelineProps) {
                             const guild = guildById.get(o.event.guild_id)!;
                             return <button className="set-agenda-item" key={o.key} onClick={() => setSelected(o)} style={{ "--set-hue": guildHue(guild.id) } as CSSProperties}>
                                 <span className="set-agenda-date">{dateTime(o.start)}<small>{t("until")} {o.estimatedEnd ? "≈ " : ""}{dateTime(o.end)}</small></span>
-                                <Icon guild={guild} /><div><strong>{o.event.name}</strong><p>{guild.name}{o.recurrenceId ? ` · ${t("repeats")}` : ""}</p></div>{o.active && <span className="set-live-badge">{t("liveShort")}</span>}
+                                <Icon guild={guild} iconUrl={props.publicView?.iconUrl} /><div><strong>{o.event.name}</strong><p>{guild.name}{o.recurrenceId ? ` · ${t("repeats")}` : ""}</p></div>{o.active && <span className="set-live-badge">{t("liveShort")}</span>}
                             </button>;
                         })}</div>}
                 <footer className="set-footnote"><span className="set-live-dot" /> {t("live")} <span>↻ {t("repeats")}</span><span>{t("estimateLegend", { hours: props.duration })}</span></footer>
@@ -336,10 +337,10 @@ export function Timeline(props: TimelineProps) {
             {selectedCurrent && selectedGuild && <aside className="set-detail">
                 <button className="set-detail-close" aria-label={t("closeDetail")} onClick={() => setSelected(null)}>✕</button>
                 {selectedCurrent.event.image && <img className="set-cover" src={`https://cdn.discordapp.com/guild-events/${selectedCurrent.event.id}/${selectedCurrent.event.image}.webp?size=1024`} alt="" />}
-                <div className="set-detail-content">{selectedGuild.id === "@personal" ? <div className="set-detail-guild"><Icon guild={selectedGuild} />{t("personalEvents")}</div> : !props.onGuild ? <div className="set-detail-guild"><Icon guild={selectedGuild} />{selectedGuild.name}</div> : <a className="set-detail-guild set-guild-link" href={`/channels/${selectedGuild.id}`} title={t("openServer", { server: selectedGuild.name })} onClick={event => {
+                <div className="set-detail-content">{selectedGuild.id === "@personal" ? <div className="set-detail-guild"><Icon guild={selectedGuild} iconUrl={props.publicView?.iconUrl} />{t("personalEvents")}</div> : !props.onGuild ? <div className="set-detail-guild"><Icon guild={selectedGuild} iconUrl={props.publicView?.iconUrl} />{selectedGuild.name}</div> : <a className="set-detail-guild set-guild-link" href={`/channels/${selectedGuild.id}`} title={t("openServer", { server: selectedGuild.name })} onClick={event => {
                     event.preventDefault();
                     props.onGuild?.(selectedGuild.id);
-                }}><Icon guild={selectedGuild} />{selectedGuild.name}</a>}
+                }}><Icon guild={selectedGuild} iconUrl={props.publicView?.iconUrl} />{selectedGuild.name}</a>}
                     {selectedCurrent.active && <span className="set-live-badge">{t("live")}</span>}
                     <h2>{selectedCurrent.event.name}</h2><p className="set-detail-time">{dateTime(selectedCurrent.start)}<br />{t("until")} {selectedCurrent.estimatedEnd ? "≈ " : ""}{dateTime(selectedCurrent.end)}</p>
                     {selectedCurrent.personal && <div className="set-personal-controls"><p className="set-muted">{t("personalHint")}</p><label>{t("savedDuration")}<DurationInput key={selectedCurrent.key} minutes={selectedCurrent.personal.minutes} label={t("savedDuration")} onChange={minutes => props.onEditPersonal(selectedCurrent.key, minutes)} /></label><button className="set-delete" onClick={() => props.onRemovePersonal(selectedCurrent.key)}>{t("removeSaved")}</button></div>}

@@ -11,7 +11,7 @@ FROM node:24-bookworm-slim
 WORKDIR /app
 RUN mkdir /data && chown node:node /data
 COPY --from=build /app/packages/vencord-plugin/.output/site/ ./
-COPY packages/timeline-service/server.mjs ./
+COPY packages/timeline-service/server.mjs packages/timeline-service/guild-icons.mjs ./
 ENV TIMELINE_DATA=/data
 USER node
 EXPOSE 8080

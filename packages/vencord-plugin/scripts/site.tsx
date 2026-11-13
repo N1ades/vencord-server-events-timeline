@@ -115,6 +115,7 @@ function Site() {
         onHiddenChange={setHidden} onViewChange={noop} onZoomChange={noop} onRefresh={refresh}
         focusEvent={eventId && byId.has(eventId) ? eventId : undefined}
         publicView={{ ...copy, warning: error ? copy.error : undefined,
+            iconUrl: guild => `/icons/${guild.id}/${guild.icon}.webp`,
             url: id => byId.get(id)?.url,
             detail: id => {
                 const item = byId.get(id);

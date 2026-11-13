@@ -3,6 +3,7 @@ import { readFileSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
+import { guildIconCache } from "./guild-icons.mjs";
 
 const origin = process.env.TIMELINE_ORIGIN ?? "https://tl.nyades.dev";
 const token = process.env.TIMELINE_TOKEN;
@@ -257,6 +258,14 @@ function mutation(params) {
     return { ok: true, action, id: event.id, status, url: eventUrl(event.id), ...(dryRun && { dry_run: true }) };
 }
 
+const publishedIcon = db.prepare(`
+    SELECT 1 FROM events WHERE url >= ? AND url < ? AND json_extract(payload, '$.guild_icon') = ? LIMIT 1
+`);
+const readGuildIcon = guildIconCache(resolve(data, "guild-icons"), (guildId, hash) => {
+    const prefix = "https://discord.com/events/" + guildId;
+    return Boolean(publishedIcon.get(prefix + "/", prefix + "0", hash));
+});
+
 const assets = new Map([
     ["/", [readFileSync(new URL("./index.html", import.meta.url)), "text/html"]],
     ["/site.js", [readFileSync(new URL("./site.js", import.meta.url)), "text/javascript"]],
@@ -266,7 +275,7 @@ function send(response, status, data, mime = "application/json") {
     response.writeHead(status, { "Content-Type": mime + "; charset=utf-8" });
     response.end(mime === "application/json" ? JSON.stringify(data) : data);
 }
-createServer({ maxHeaderSize: 24_576, requestTimeout: 15_000 }, (request, response) => {
+createServer({ maxHeaderSize: 24_576, requestTimeout: 15_000 }, async (request, response) => {
     response.setHeader("Cache-Control", "no-store, private");
     response.setHeader("Referrer-Policy", "no-referrer");
     response.setHeader("X-Content-Type-Options", "nosniff");
@@ -277,6 +286,15 @@ createServer({ maxHeaderSize: 24_576, requestTimeout: 15_000 }, (request, respon
         if (request.method !== "GET" && !(request.method === "HEAD" && pathname !== "/timeline")) {
             response.setHeader("Allow", pathname === "/timeline" ? "GET" : "GET, HEAD");
             throw new HttpError(405, "method_not_allowed");
+        }
+        if (pathname.startsWith("/icons/")) {
+            let icon;
+            try { icon = await readGuildIcon(pathname); }
+            catch { throw new HttpError(503, "icon_unavailable"); }
+            if (!icon) throw new HttpError(404, "icon_not_found");
+            response.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+            response.writeHead(200, { "Content-Type": "image/webp", "Content-Length": icon.length });
+            return response.end(request.method === "HEAD" ? undefined : icon);
         }
         if (pathname === "/timeline") return send(response, 200, mutation(searchParams));
         if (pathname === "/healthz") { db.prepare("SELECT 1").get(); return send(response, 200, { ok: true }); }
